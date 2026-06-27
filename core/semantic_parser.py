@@ -1,20 +1,3 @@
-"""
-NACIR++ — Semantic Parser (Beliefs Loader + Online Parser Wrapper)
-===================================================================
-Bridge between Step 1 (DualExtractor) and the main orchestrator
-(run_nacir_plus.py).
-
-Two modes:
-  1. Pre-computed: Load beliefs from a JSON file (fast, reproducible)
-  2. Online:       Parse dialog turns on-the-fly via DualExtractor
-
-Beliefs format (per dialog per turn):
-    {
-        "positive_beliefs": [{"attribute": str, "confidence": float}, ...],
-        "negative_beliefs": [{"attribute": str, "confidence": float}, ...]
-    }
-"""
-
 import json
 import os
 import logging
@@ -23,38 +6,12 @@ from typing import Dict, List, Optional, Any
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
 # 1. Load pre-computed beliefs
-# ============================================================
 
 def load_precomputed_beliefs(
     path: str,
 ) -> Dict[int, Dict[int, Dict]]:
-    """
-    Load pre-computed beliefs JSON.
-
-    Expected JSON formats (auto-detected):
-
-    Format A (flat list — from dual_extractor batch output):
-        [
-          {
-            "dialog_id": 0,
-            "turns": [
-              {"turn": 0, "positives": [...], "negatives": [...]},
-              ...
-            ]
-          }
-        ]
-
-    Format B (nested dict — direct mapping):
-        {
-            "0": {"0": {"positive_beliefs": [...], "negative_beliefs": [...]}, ...},
-            ...
-        }
-
-    Returns:
-        {dialog_id(int): {turn(int): {"positive_beliefs": [...], "negative_beliefs": [...]}}}
-    """
+    
     with open(path) as f:
         raw = json.load(f)
 
@@ -93,23 +50,10 @@ def load_precomputed_beliefs(
     return result
 
 
-# ============================================================
 # 2. Online Semantic Parser (wraps DualExtractor)
-# ============================================================
 
 class SemanticParser:
-    """
-    Online parser: wraps DualExtractor to produce beliefs
-    in the format expected by run_nacir_plus.py.
-
-    Usage:
-        parser = SemanticParser(backend="rule")
-        beliefs = parser.parse(
-            answer="No, there is no dog",
-            question="Is there a dog?"
-        )
-        # {"positive_beliefs": [], "negative_beliefs": [{"attribute": "dog", "confidence": 0.85}]}
-    """
+    
 
     def __init__(
         self,
@@ -133,15 +77,7 @@ class SemanticParser:
         answer: str,
         question: str = "",
     ) -> Dict[str, List[Dict]]:
-        """
-        Parse one (question, answer) pair → beliefs.
-
-        Returns:
-            {
-                "positive_beliefs": [{"attribute": str, "confidence": float}],
-                "negative_beliefs": [{"attribute": str, "confidence": float}]
-            }
-        """
+        
         result = self.extractor.extract(answer=answer, question=question)
         return {
             "positive_beliefs": result.get("positives", []),
@@ -149,9 +85,7 @@ class SemanticParser:
         }
 
 
-# ============================================================
 # 3. CLI: Generate beliefs offline
-# ============================================================
 
 def generate_beliefs_offline(
     queries_path: str,
@@ -161,11 +95,7 @@ def generate_beliefs_offline(
     device: str = "cuda",
     ollama_url: str = "http://localhost:11434",
 ) -> None:
-    """
-    Generate beliefs for the entire dataset and save to JSON.
-    This is a convenience wrapper around DualExtractor batch mode,
-    but outputs in the beliefs format expected by load_precomputed_beliefs().
-    """
+    
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils.negative_detector import parse_visdial_dialog

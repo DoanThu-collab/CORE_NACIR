@@ -1,21 +1,7 @@
-"""
-NACIR — Negative Turn Detector
-==============================
-3-stage cascade for labeling dialog turns as positive / negative / mixed.
-
-Stage 1: Rule-based (regex) — handles explicit negation ("no", "not", "don't")
-Stage 2: NLI-based (DeBERTa) — handles implicit/ambiguous negation  [TODO: Phase 2]
-Stage 3: LLM-based (Llama 3.1 8B) — handles mixed/degree negation   [TODO: Phase 3]
-
-For the baseline experiment, Stage 1 is sufficient.
-"""
-
 import re
 from typing import List, Dict, Tuple, Optional
 
-# ============================================================
 # Stage 1: Rule-based patterns
-# ============================================================
 
 # Explicit negation patterns (English - VisDial is in English)
 NEGATIVE_PATTERNS = [
@@ -106,15 +92,7 @@ def label_turn_stage1(answer: str) -> str:
 
 
 def label_dialog(dialog_turns: List[Dict]) -> List[Dict]:
-    """
-    Label all turns in a dialog.
-    
-    Args:
-        dialog_turns: list of {"question": str, "answer": str}
-    
-    Returns:
-        list of {"question": str, "answer": str, "label": str, "turn_idx": int}
-    """
+   
     labeled = []
     for i, turn in enumerate(dialog_turns):
         label = label_turn_stage1(turn["answer"])
@@ -135,12 +113,7 @@ def count_negative_turns(dialog_turns: List[Dict]) -> int:
 
 
 def classify_dialog(dialog_turns: List[Dict], neg_threshold: int = 3) -> str:
-    """
-    Classify entire dialog as:
-    - 'neg_heavy':  >= neg_threshold negative/mixed turns
-    - 'pos_only':   <= 1 negative/mixed turns
-    - 'moderate':   in between
-    """
+    
     neg_count = count_negative_turns(dialog_turns)
     if neg_count >= neg_threshold:
         return "neg_heavy"
@@ -150,18 +123,10 @@ def classify_dialog(dialog_turns: List[Dict], neg_threshold: int = 3) -> str:
         return "moderate"
 
 
-# ============================================================
 # VisDial-specific helpers
-# ============================================================
 
 def parse_visdial_dialog(dialog_strings: List[str]) -> List[Dict]:
-    """
-    Parse VisDial dialog format: ["caption", "Q? A", "Q? A", ...]
-    into list of {"question": str, "answer": str}
     
-    The first element is the caption (treated as positive context).
-    Each subsequent element is "question? answer" format.
-    """
     if not dialog_strings:
         return []
     
@@ -187,15 +152,7 @@ def parse_visdial_dialog(dialog_strings: List[str]) -> List[Dict]:
 
 
 def analyze_visdial_dataset(queries: List[Dict], neg_threshold: int = 3) -> Dict:
-    """
-    Analyze full VisDial dataset for negative turn statistics.
     
-    Args:
-        queries: list of {"img": str, "dialog": list[str]}
-    
-    Returns:
-        dict with statistics and categorized indices
-    """
     stats = {
         "total": len(queries),
         "neg_heavy_count": 0,

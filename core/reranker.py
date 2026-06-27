@@ -1,19 +1,3 @@
-"""
-NACIR++ — ITM Re-ranking Module
-=================================
-Sau khi cosine similarity tìm ra Top-K ảnh ứng viên,
-dùng BLIP Image-Text Matching (ITM) head để re-rank lại.
-
-ITM head tính toán cross-attention giữa image patches và text tokens,
-cho điểm matching chính xác hơn rất nhiều so với cosine similarity
-trên global vectors.
-
-Usage:
-    from core.reranker import ITMReranker
-    reranker = ITMReranker(model, processor, device)
-    new_ranks = reranker.rerank_batch(queries_text, top_k_indices, corpus_paths, K=10)
-"""
-
 import torch
 import torch.nn.functional as F
 from typing import List, Optional, Tuple
@@ -25,22 +9,10 @@ logger = logging.getLogger(__name__)
 
 
 class ITMReranker:
-    """
-    BLIP ITM-based re-ranker.
-    
-    After first-stage retrieval (cosine similarity on global vectors),
-    this re-ranker loads the actual images for top-K candidates and
-    computes precise Image-Text Matching scores using BLIP's ITM head.
-    """
+   
 
     def __init__(self, model, processor, device: str, rerank_k: int = 50):
-        """
-        Args:
-            model:     BlipForImageTextRetrieval model (with ITM head)
-            processor: AutoProcessor for BLIP
-            device:    'cuda' or 'cpu'
-            rerank_k:  Number of top candidates to re-rank (default 50)
-        """
+        
         self.model = model
         self.processor = processor
         self.device = device
@@ -53,16 +25,7 @@ class ITMReranker:
         image_paths: List[str],
         batch_size: int = 16,
     ) -> torch.Tensor:
-        """
-        Compute ITM scores for one query against multiple images.
-
-        Args:
-            text:        Query text string
-            image_paths: List of image file paths
-
-        Returns:
-            scores: [N] ITM matching scores (higher = better match)
-        """
+        
         all_scores = []
 
         def load_image(p):
@@ -116,20 +79,7 @@ class ITMReranker:
         itm_weight: float = 0.7,             # Weight for ITM vs cosine
         batch_size: int = 128,               # Batch size for ITM
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Re-rank top-K candidates using ITM scores.
-
-        Args:
-            query_text:           Query text string
-            top_k_corpus_indices: [K] indices of top-K images in corpus
-            corpus_paths:         List of all corpus image paths
-            cosine_scores:        [K] original cosine similarity scores
-            itm_weight:           Weight for ITM score in final ranking
-
-        Returns:
-            reranked_indices: [K] corpus indices, re-ordered
-            reranked_scores:  [K] combined scores
-        """
+        
         K = len(top_k_corpus_indices)
 
         # Get image paths for top-K candidates

@@ -1,26 +1,3 @@
-"""
-NACIR++ — Query Update Pipeline (Glue: Steps 2 + 3 + 4)
-==========================================================
-Connects Concept Memory, Orthogonal Projection, and Attention Masking
-into a single BatchUpdater interface consumed by run_nacir_plus.py.
-
-Design Philosophy — Plug-and-Play:
-    NACIR++ does NOT replace the retrieval model or the query generation.
-    It is a POST-HOC query modifier that sits between:
-        PlugIR/ChatIR query → [NACIR++] → same retrieval model
-
-    This means:
-    - Same corpus embeddings
-    - Same text encoder
-    - Same eval metrics (Hits@K, Recall@K, BRI — matching PlugIR exactly)
-    - Only the query vector and scores are modified
-
-Architecture:
-    beliefs_batch → Step 2 (Concept Memory + Synthesize)
-                  → Step 3 (Orthogonal Projection)
-                  → Step 4 (Attention Masking on scores)
-"""
-
 import torch
 import torch.nn.functional as F
 from dataclasses import dataclass, field
@@ -38,21 +15,10 @@ from core.attention_masking import apply_enhanced_penalty
 logger = logging.getLogger(__name__)
 
 
-# ============================================================
 # Config
-# ============================================================
-
 @dataclass
 class NACIRPlusPlusConfig:
-    """
-    Unified configuration for all NACIR++ steps.
-
-    Ablation modes:
-        "full"       — all steps enabled
-        "no_ortho"   — disable Step 3 (Orthogonal Projection)
-        "no_mask"    — disable Step 4 (Attention Masking)
-        "no_memory"  — disable Step 2 (Concept Memory), use raw PlugIR query
-    """
+  
     # Step 2: Concept Memory
     memory_alpha: float = 0.30          # Positive blend weight
     memory_beta: float = 0.15           # Negative blend weight
@@ -83,31 +49,9 @@ class NACIRPlusPlusConfig:
         )
 
 
-# ============================================================
 # Batch Updater — Main Interface
-# ============================================================
-
 class NACIRPlusPlusBatchUpdater:
-    """
-    Batch-level query update for NACIR++.
-
-    Maintains one ConceptMemoryBoard per query in the batch.
-    Orchestrates Steps 2 → 3 → 4 for the entire batch.
-
-    Usage:
-        updater = NACIRPlusPlusBatchUpdater(config, batch_size, encoder, device)
-
-        for t in range(num_rounds):
-            if t > 0:
-                q_t = updater.update_query(q_text_t, beliefs_batch, t)
-            else:
-                q_t = q_text_t
-
-            scores = q_t @ corpus_vectors.T
-
-            if t > 0:
-                scores = updater.apply_masking(scores, corpus_vectors)
-    """
+    
 
     def __init__(
         self,
@@ -150,18 +94,7 @@ class NACIRPlusPlusBatchUpdater:
         beliefs_batch: List[Dict],     # [B] — beliefs per query
         turn: int,
     ) -> torch.Tensor:
-        """
-        Steps 2 + 3: Update query vectors using Concept Memory + Orthogonal Projection.
-
-        Args:
-            q_text_batch:  [B, D] raw PlugIR text embeddings
-            beliefs_batch: list of B dicts, each with:
-                           {"positive_beliefs": [...], "negative_beliefs": [...]}
-            turn:          current dialog turn (1-indexed for first QA round)
-
-        Returns:
-            q_updated: [B, D] updated query vectors
-        """
+        
         B, D = q_text_batch.shape
         q_list = []
 
@@ -172,7 +105,7 @@ class NACIRPlusPlusBatchUpdater:
             pos_beliefs = beliefs.get("positive_beliefs", [])
             neg_beliefs = beliefs.get("negative_beliefs", [])
 
-            # ── Step 2: Concept Memory ──
+            # Step 2: Concept Memory
             if self.config.mode != "no_memory":
                 # Convert beliefs to concept format
                 positives = [
@@ -194,7 +127,7 @@ class NACIRPlusPlusBatchUpdater:
                 # Synthesize query from memory
                 q_t = self.boards[b].synthesize_query(q_t)
 
-            # ── Step 3: Orthogonal Projection ──
+            # Step 3: Orthogonal Projection
             if self.config.mode != "no_ortho":
                 neg_vecs, neg_weights = self.boards[b].get_negative_vectors()
                 if neg_vecs is not None and neg_vecs.shape[0] > 0:
@@ -227,19 +160,7 @@ class NACIRPlusPlusBatchUpdater:
         scores: torch.Tensor,       # [B, N]
         corpus_vectors: torch.Tensor,  # [N, D]
     ) -> torch.Tensor:
-        """
-        Step 4: Apply enhanced penalty scoring using negative concepts.
-
-        Uses Global Fallback mode (Mode 2) since we only have global
-        corpus embeddings, not patch-level features.
-
-        Args:
-            scores:         [B, N] current similarity scores
-            corpus_vectors: [N, D] corpus image embeddings
-
-        Returns:
-            scores:         [B, N] adjusted scores
-        """
+        
         if self.config.mode == "no_mask":
             return scores
 
@@ -262,12 +183,10 @@ class NACIRPlusPlusBatchUpdater:
         return scores
 
     def get_batch_stats(self) -> Dict[str, int]:
-        """Return accumulated statistics for this batch."""
         return {
             "total_overrides": self._total_overrides,
             "total_concepts": self._total_concepts,
         }
 
     def get_memory_snapshots(self) -> List[List[Dict]]:
-        """Get memory snapshots for all queries in batch (for debugging)."""
         return [board.get_memory_snapshot() for board in self.boards]

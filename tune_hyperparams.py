@@ -1,13 +1,3 @@
-"""
-NACIR++ — Hyperparameter Tuning
-===============================
-Kịch bản chạy Optuna Bayesian Optimization để tìm ra bộ tham số cấu hình cứng (Optimal Params)
-tạo ra SOTA result (như đã thiết lập trong main.py).
-
-Usage:
-    CUDA_VISIBLE_DEVICES=0 python tune_hyperparams.py
-"""
-
 import os
 import sys
 import json
@@ -27,26 +17,20 @@ from transformers import AutoProcessor, BlipForImageTextRetrieval
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 
-# ============================================================
-# Cấu hình "cứng" (Hardcoded Configurations)
-# ============================================================
-
-DATA_DIR = "/AIClub_NAS/core_baotg/thuyntn/Datasets/PlugIR/"
-QUERIES_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/PlugIR/dialogues/VisDial_v1.0_queries_val.json"
-PLUGIR_QUERIES_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR/dialogues/ours_final_q_n_5_recall_hitting_10_thres_low_500_recon_true_referring_true_filtering_true_select_true_reconed.json"
-CACHE_CORPUS_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/ChatIR/temp/corpus_blip_large.pth"
-CORPUS_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/PlugIR/Protocol/Search_Space_val_50k.json"
-BELIEFS_PATH = "/AIClub_NAS/core_baotg/thuyntn/NACIR/data/semantic_beliefs.json"
-OUTPUT_DIR = "logs/optuna_search"
+#Config 
+DATA_DIR = "/Path_to_your_data_directory"
+QUERIES_PATH = "/Path_to_your_queries_file.json"
+PLUGIR_QUERIES_PATH = "/Path_to_your_plugir_queries_file.json"
+CACHE_CORPUS_PATH = "/Path_to_your_corpus_cache_file.pt"
+CORPUS_PATH = "/Path_to_your_corpus_file.json"
+BELIEFS_PATH = "/Path_to_your_beliefs_file.json"
+OUTPUT_DIR = "/Path_to_your_output_directory"
 
 BATCH_SIZE = 64
 N_TRIALS = 80
 BLIP_MODEL = "Salesforce/blip-itm-large-coco"
 
-# ============================================================
-# Model definitions
-# ============================================================
-
+#Model 
 class BlipForRetrieval(BlipForImageTextRetrieval):
     def get_text_features(self, input_ids, attention_mask=None, return_dict=None):
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict

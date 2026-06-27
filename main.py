@@ -1,13 +1,3 @@
-"""
-NACIR++ — Final Code Release (End-to-End Evaluation)
-=====================================================
-Chạy evaluation loop sử dụng kiến trúc NACIR++ đã được tối ưu hóa.
-File này đã được cấu hình cứng (hardcode) bộ siêu tham số tạo ra kết quả tốt nhất (BRI = 0.6861).
-
-Usage:
-    CUDA_VISIBLE_DEVICES=0 python main.py
-"""
-
 import os
 import sys
 import json
@@ -26,27 +16,24 @@ from utils.negative_detector import parse_visdial_dialog, label_dialog
 
 os.environ['TOKENIZERS_PARALLELISM'] = 'true'
 
-# ============================================================
-# Cấu hình "cứng" (Hardcoded Configurations)
-# ============================================================
-
-DATA_DIR = "/AIClub_NAS/core_baotg/thuyntn/Datasets/PlugIR/"
-QUERIES_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/PlugIR/dialogues/VisDial_v1.0_queries_val.json"
-PLUGIR_QUERIES_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR/dialogues/ours_final_q_n_5_recall_hitting_10_thres_low_500_recon_true_referring_true_filtering_true_select_true_reconed.json"
-CACHE_CORPUS_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/ChatIR/temp/corpus_blip_large.pth"
-CORPUS_PATH = "/AIClub_NAS/core_baotg/thuyntn/PlugIR_Workspace/PlugIR/Protocol/Search_Space_val_50k.json"
-BELIEFS_PATH = "/AIClub_NAS/core_baotg/thuyntn/NACIR/data/semantic_beliefs.json"
-OUTPUT_DIR = "logs"
+#Config
+DATA_DIR = "/Path_to_your_data_directory"
+QUERIES_PATH = "/Path_to_your_queries_file.json"
+PLUGIR_QUERIES_PATH = "/Path_to_your_plugir_queries_file.json"
+CACHE_CORPUS_PATH = "/Path_to_your_corpus_cache_file.pt"
+CORPUS_PATH = "/Path_to_your_corpus_file.json"
+BELIEFS_PATH = "/Path_to_your_beliefs_file.json"
+OUTPUT_DIR = "/Path_to_your_output_directory"
 
 BATCH_SIZE = 64
 ITM_BATCH_SIZE = 16
 RERANK_K = 50
 ITM_WEIGHT = 0.7
 
-# Tham số tối ưu của NACIR++ (Đã tune qua Optuna)
+#Optuna
 OPTIMAL_CONFIG = NACIRPlusPlusConfig(
     memory_alpha=0.55,
-    memory_beta=0.275,        # Thường bằng alpha * 0.5
+    memory_beta=0.275,        #Alpha*0.5
     positive_blend_alpha=0.55,
     ortho_strength=0.2,
     masking_penalty_weight=0.18,
@@ -56,10 +43,7 @@ OPTIMAL_CONFIG = NACIRPlusPlusConfig(
     mode="full"
 )
 
-# ============================================================
-# Model definitions
-# ============================================================
-
+#Model
 from transformers import AutoProcessor, BlipForImageTextRetrieval
 
 class BlipForRetrieval(BlipForImageTextRetrieval):
