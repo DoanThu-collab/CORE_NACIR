@@ -153,6 +153,7 @@ class ConceptMemoryBoard:
         positives: List[Dict],
         negatives: List[Dict],
         turn: int,
+        precomputed_vectors: Optional[List[torch.Tensor]] = None,
     ) -> Dict[str, int]:
         """
         Thêm concepts từ Dual Extractor (Step 1) vào bảng nhớ.
@@ -162,6 +163,7 @@ class ConceptMemoryBoard:
             positives: [{"attribute": str, "confidence": float}, ...]
             negatives: [{"attribute": str, "confidence": float}, ...]
             turn: turn index hiện tại
+            precomputed_vectors: optional list of precomputed tensors
 
         Returns:
             {"added": int, "overridden": int, "updated": int}
@@ -169,23 +171,32 @@ class ConceptMemoryBoard:
         self.current_turn = turn
         stats = {"added": 0, "overridden": 0, "updated": 0}
 
+        if precomputed_vectors is not None:
+            all_vectors = precomputed_vectors
+        else:
+            all_vectors = [None] * (len(positives) + len(negatives))
+            
+        n_pos = len(positives)
+
         # Process positive concepts
-        for item in positives:
+        for idx, item in enumerate(positives):
             result = self._process_concept(
                 name=item["attribute"],
                 polarity="positive",
                 confidence=item.get("confidence", 0.7),
                 turn=turn,
+                precomputed_vector=all_vectors[idx],
             )
             stats[result] += 1
 
         # Process negative concepts
-        for item in negatives:
+        for idx, item in enumerate(negatives):
             result = self._process_concept(
                 name=item["attribute"],
                 polarity="negative",
                 confidence=item.get("confidence", 0.7),
                 turn=turn,
+                precomputed_vector=all_vectors[n_pos + idx],
             )
             stats[result] += 1
 
@@ -195,7 +206,8 @@ class ConceptMemoryBoard:
         return stats
 
     def _process_concept(
-        self, name: str, polarity: str, confidence: float, turn: int
+        self, name: str, polarity: str, confidence: float, turn: int,
+        precomputed_vector: Optional[torch.Tensor] = None,
     ) -> str:
         """
         Xử lý 1 concept: thêm mới, cập nhật, hoặc ghi đè.
@@ -203,7 +215,7 @@ class ConceptMemoryBoard:
         Returns:
             "added", "updated", hoặc "overridden"
         """
-        vector = self._encode_concept(name)
+        vector = precomputed_vector if precomputed_vector is not None else self._encode_concept(name)
         existing_name = self._find_matching_concept(name, vector)
 
         if existing_name is None:

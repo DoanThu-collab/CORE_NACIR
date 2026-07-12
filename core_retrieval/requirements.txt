@@ -1,0 +1,6 @@
+numpy
+optuna
+pillow
+torch
+tqdm
+transformers

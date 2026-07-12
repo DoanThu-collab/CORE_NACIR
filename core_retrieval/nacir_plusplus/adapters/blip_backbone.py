@@ -159,14 +159,32 @@ class BlipITMScorer:
         for i in range(0, len(to_compute), self.batch_size):
             batch_paths = to_compute[i:i + self.batch_size]
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(batch_paths))) as executor:
-                results = list(executor.map(self._load_image, batch_paths))
+            # Dùng submit + wait(timeout) thay cho with-block để tránh D-state NAS hang.
+            # - Ảnh timeout: bỏ qua lần này, KHÔNG thêm vào _invalid_paths → lần sau retry.
+            # - Ảnh lỗi thực sự (Exception): thêm vào _invalid_paths → gán -100.0 vĩnh viễn.
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(batch_paths)))
+            futures_map = {executor.submit(self._load_image, p): p for p in batch_paths}
+            done, not_done = concurrent.futures.wait(futures_map.keys(), timeout=60.0)
 
-            valid_paths = [p for p, (img, ok) in zip(batch_paths, results) if ok]
-            valid_images = [img for (img, ok) in results if ok]
-            for p, (_, ok) in zip(batch_paths, results):
-                if not ok:
+            valid_paths = []
+            valid_images = []
+            for fut in futures_map:
+                p = futures_map[fut]
+                if fut in not_done:
+                    # NAS chậm / treo — bỏ qua lần này, không phạt vĩnh viễn
+                    fut.cancel()
+                    continue
+                try:
+                    img, ok = fut.result()
+                    if ok:
+                        valid_paths.append(p)
+                        valid_images.append(img)
+                    else:
+                        self._invalid_paths.add(p)  # lỗi thực sự
+                except Exception:
                     self._invalid_paths.add(p)
+
+            executor.shutdown(wait=False, cancel_futures=True)
 
             if not valid_images:
                 continue
@@ -195,7 +213,11 @@ class BlipITMScorer:
         all_scores = []
         for i in range(0, len(image_paths), self.batch_size):
             batch_paths = image_paths[i:i + self.batch_size]
-            valid_paths = [p for p in batch_paths if p not in self._invalid_paths]
+            # valid_paths: không lỗi vĩnh viễn VÀ đã có embed trong cache.
+            # (Ảnh bị timeout NAS sẽ không có trong cache → bỏ qua lần này,
+            #  lần sau _ensure_embeds_cached sẽ retry vì chưa có trong _invalid_paths)
+            valid_paths = [p for p in batch_paths
+                           if p not in self._invalid_paths and p in self._embeds_cache]
 
             batch_scores = torch.full((len(batch_paths),), -100.0, device=self.device)
 
@@ -222,7 +244,7 @@ class BlipITMScorer:
 
                 valid_idx = 0
                 for j, p in enumerate(batch_paths):
-                    if p not in self._invalid_paths:
+                    if p not in self._invalid_paths and p in self._embeds_cache:
                         batch_scores[j] = valid_scores[valid_idx]
                         valid_idx += 1
 

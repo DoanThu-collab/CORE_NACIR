@@ -1,0 +1,333 @@
+2026-07-10 03:43:37,251 | ============================================================
+2026-07-10 03:43:37,252 | NACIR++ Plug-and-Play (BATCHED) — reproducing PlugIR/VisDial run
+2026-07-10 03:43:37,252 | Config: NACIRPlusPlusConfig(mode=full, α_mem=0.55, β_mem=0.275, α_pos=0.55, ortho_str=0.2, mask_w=0.18, mask_τ=0.25)
+2026-07-10 03:43:37,252 | ============================================================
+2026-07-10 03:43:37,600 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:37,601 | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-07-10 03:43:37,608 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:37,920 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:38,189 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:38,465 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/pytorch_model.bin "HTTP/1.1 302 Found"
+2026-07-10 03:43:38,735 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:39,009 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco "HTTP/1.1 200 OK"
+2026-07-10 03:43:39,311 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/main "HTTP/1.1 200 OK"
+2026-07-10 03:43:39,604 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/discussions?p=0 "HTTP/1.1 200 OK"
+2026-07-10 03:43:39,892 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/refs%2Fpr%2F5 "HTTP/1.1 200 OK"
+2026-07-10 03:43:40,164 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:40,440 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors "HTTP/1.1 302 Found"
+2026-07-10 03:43:42,419 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:42,693 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:42,701 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:42,970 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:43,313 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:43,321 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:43,594 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:43,875 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:44,150 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:44,419 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:44,689 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:44,959 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:45,235 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:45,241 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:45,510 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:45,788 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:45,795 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:46,108 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:46,115 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:46,406 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 03:43:46,413 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-10 03:43:46,701 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 03:43:46,977 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-10 04:26:23,177 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 1/17)
+2026-07-10 04:52:57,417 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 2/17)
+2026-07-10 05:15:07,754 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 3/17)
+2026-07-10 05:31:42,709 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 4/17)
+2026-07-10 05:55:58,786 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 5/17)
+2026-07-10 06:18:38,040 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 6/17)
+2026-07-10 06:41:12,116 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 7/17)
+2026-07-10 07:02:57,917 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 8/17)
+2026-07-10 07:23:12,497 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 9/17)
+2026-07-10 07:39:22,807 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 10/17)
+2026-07-10 07:56:06,348 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 11/17)
+2026-07-10 08:10:43,074 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 12/17)
+2026-07-10 08:23:51,230 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 13/17)
+2026-07-10 08:43:12,453 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 14/17)
+2026-07-10 09:02:19,985 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 15/17)
+2026-07-10 09:12:36,719 | ============================================================
+2026-07-10 09:12:36,719 | NACIR++ Plug-and-Play (BATCHED) — reproducing PlugIR/VisDial run
+2026-07-10 09:12:36,719 | Config: NACIRPlusPlusConfig(mode=full, α_mem=0.55, β_mem=0.275, α_pos=0.55, ortho_str=0.2, mask_w=0.18, mask_τ=0.25)
+2026-07-10 09:12:36,719 | ============================================================
+2026-07-10 09:12:37,066 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:37,066 | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-07-10 09:12:37,073 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:37,353 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:37,629 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:37,905 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/pytorch_model.bin "HTTP/1.1 302 Found"
+2026-07-10 09:12:38,179 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:38,452 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco "HTTP/1.1 200 OK"
+2026-07-10 09:12:38,729 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/main "HTTP/1.1 200 OK"
+2026-07-10 09:12:39,005 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/discussions?p=0 "HTTP/1.1 200 OK"
+2026-07-10 09:12:39,290 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/refs%2Fpr%2F5 "HTTP/1.1 200 OK"
+2026-07-10 09:12:39,562 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:39,841 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors "HTTP/1.1 302 Found"
+2026-07-10 09:12:40,370 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:40,641 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:40,648 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:40,919 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:41,191 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:41,199 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:41,474 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:41,749 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:42,023 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:42,297 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:42,561 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:42,837 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:43,110 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:43,116 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:43,388 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:43,663 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:43,670 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:43,938 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:43,945 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:44,225 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 09:12:44,233 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-10 09:12:44,583 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 09:12:44,858 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-10 09:12:45,371 | Resume từ checkpoint: Đã chạy xong 1920/2064 queries.
+2026-07-10 09:55:11,766 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 16/17)
+2026-07-10 09:59:28,978 | Đã lưu checkpoint tại logs_batch/beliefs_llama3_1_8b/checkpoint.pkl (xong batch 17/17)
+2026-07-10 09:59:28,990 | 
+====== Results for Hits@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 81.25%
+	 Dialog Length: 2: 85.47%
+	 Dialog Length: 3: 87.89%
+	 Dialog Length: 4: 89.83%
+	 Dialog Length: 5: 91.18%
+	 Dialog Length: 6: 91.72%
+	 Dialog Length: 7: 92.54%
+	 Dialog Length: 8: 92.93%
+	 Dialog Length: 9: 93.31%
+	 Dialog Length: 10: 93.9%
+====== Results for Recall@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 76.84%
+	 Dialog Length: 2: 78.78%
+	 Dialog Length: 3: 79.41%
+	 Dialog Length: 4: 80.43%
+	 Dialog Length: 5: 80.28%
+	 Dialog Length: 6: 80.57%
+	 Dialog Length: 7: 80.81%
+	 Dialog Length: 8: 79.51%
+	 Dialog Length: 9: 79.46%
+	 Dialog Length: 10: 79.55%
+====== Best log Rank Integral ======
+	 BRI: 0.6700
+2026-07-10 09:59:29,015 | Results saved to logs_batch/beliefs_llama3_1_8b/nacir_plus_plugplay_ranks.npz
+2026-07-10 15:36:34,248 | ============================================================
+2026-07-10 15:36:34,249 | NACIR++ Plug-and-Play (BATCHED) — reproducing PlugIR/VisDial run
+2026-07-10 15:36:34,249 | Config: NACIRPlusPlusConfig(mode=full, α_mem=0.55, β_mem=0.275, α_pos=0.55, ortho_str=0.2, mask_w=0.18, mask_τ=0.25)
+2026-07-10 15:36:34,249 | ============================================================
+2026-07-10 15:36:34,693 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:34,744 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:35,028 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:35,029 | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-07-10 15:36:35,291 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:35,559 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/pytorch_model.bin "HTTP/1.1 302 Found"
+2026-07-10 15:36:35,824 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:36,091 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco "HTTP/1.1 200 OK"
+2026-07-10 15:36:36,379 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/main "HTTP/1.1 200 OK"
+2026-07-10 15:36:36,657 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/discussions?p=0 "HTTP/1.1 200 OK"
+2026-07-10 15:36:36,929 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/refs%2Fpr%2F5 "HTTP/1.1 200 OK"
+2026-07-10 15:36:37,194 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:37,462 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors "HTTP/1.1 302 Found"
+2026-07-10 15:36:37,885 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:38,149 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:38,197 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:38,462 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:38,725 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:38,776 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:39,043 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:39,311 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:39,567 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:39,826 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:40,086 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:40,343 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:40,606 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:40,655 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:40,926 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:41,196 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:41,245 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:41,507 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:41,556 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:41,828 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 15:36:41,877 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-10 15:36:42,153 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 15:36:42,420 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-10 15:36:43,177 | Resume từ checkpoint: Đã chạy xong 2064/2064 queries.
+2026-07-10 15:37:17,791 | 
+====== Results for Hits@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 81.25%
+	 Dialog Length: 2: 85.47%
+	 Dialog Length: 3: 87.89%
+	 Dialog Length: 4: 89.83%
+	 Dialog Length: 5: 91.18%
+	 Dialog Length: 6: 91.72%
+	 Dialog Length: 7: 92.54%
+	 Dialog Length: 8: 92.93%
+	 Dialog Length: 9: 93.31%
+	 Dialog Length: 10: 93.9%
+====== Results for Recall@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 76.84%
+	 Dialog Length: 2: 78.78%
+	 Dialog Length: 3: 79.41%
+	 Dialog Length: 4: 80.43%
+	 Dialog Length: 5: 80.28%
+	 Dialog Length: 6: 80.57%
+	 Dialog Length: 7: 80.81%
+	 Dialog Length: 8: 79.51%
+	 Dialog Length: 9: 79.46%
+	 Dialog Length: 10: 79.55%
+====== Best log Rank Integral ======
+	 BRI: 0.6700
+2026-07-10 15:37:17,826 | Results saved to logs_batch/beliefs_llama3_1_8b/nacir_plus_plugplay_ranks.npz
+2026-07-10 16:26:57,390 | ============================================================
+2026-07-10 16:26:57,390 | NACIR++ Plug-and-Play (BATCHED) — reproducing PlugIR/VisDial run
+2026-07-10 16:26:57,391 | Config: NACIRPlusPlusConfig(mode=full, α_mem=0.55, β_mem=0.275, α_pos=0.55, ortho_str=0.2, mask_w=0.18, mask_τ=0.25)
+2026-07-10 16:26:57,391 | ============================================================
+2026-07-10 16:26:57,815 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:26:57,867 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 16:26:58,192 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 16:26:58,473 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:26:58,474 | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-07-10 16:26:58,777 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/pytorch_model.bin "HTTP/1.1 302 Found"
+2026-07-10 16:26:59,088 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 16:26:59,379 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco "HTTP/1.1 200 OK"
+2026-07-10 16:26:59,751 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/main "HTTP/1.1 200 OK"
+2026-07-10 16:27:00,032 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/discussions?p=0 "HTTP/1.1 200 OK"
+2026-07-10 16:27:00,313 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/refs%2Fpr%2F5 "HTTP/1.1 200 OK"
+2026-07-10 16:27:00,587 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:00,976 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors "HTTP/1.1 302 Found"
+2026-07-10 16:27:01,242 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:01,512 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:01,569 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:01,838 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:02,124 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:02,175 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:02,437 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:02,708 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:02,977 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:03,245 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:03,516 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:03,797 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:04,058 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:04,110 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:04,371 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:04,647 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:04,698 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:04,968 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:05,023 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:05,295 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 16:27:05,350 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-10 16:27:05,636 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 16:27:05,910 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-10 16:27:06,355 | Resume từ checkpoint: Đã chạy xong 2064/2064 queries.
+2026-07-10 16:27:33,635 | 
+====== Results for Hits@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 81.25%
+	 Dialog Length: 2: 85.47%
+	 Dialog Length: 3: 87.89%
+	 Dialog Length: 4: 89.83%
+	 Dialog Length: 5: 91.18%
+	 Dialog Length: 6: 91.72%
+	 Dialog Length: 7: 92.54%
+	 Dialog Length: 8: 92.93%
+	 Dialog Length: 9: 93.31%
+	 Dialog Length: 10: 93.9%
+====== Results for Recall@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 76.84%
+	 Dialog Length: 2: 78.78%
+	 Dialog Length: 3: 79.41%
+	 Dialog Length: 4: 80.43%
+	 Dialog Length: 5: 80.28%
+	 Dialog Length: 6: 80.57%
+	 Dialog Length: 7: 80.81%
+	 Dialog Length: 8: 79.51%
+	 Dialog Length: 9: 79.46%
+	 Dialog Length: 10: 79.55%
+====== Best log Rank Integral ======
+	 BRI: 0.6700
+2026-07-10 16:27:33,667 | Results saved to logs_batch/beliefs_llama3_1_8b/nacir_plus_plugplay_ranks.npz
+2026-07-10 20:57:53,180 | ============================================================
+2026-07-10 20:57:53,181 | NACIR++ Plug-and-Play (BATCHED) — reproducing PlugIR/VisDial run
+2026-07-10 20:57:53,181 | Config: NACIRPlusPlusConfig(mode=full, α_mem=0.55, β_mem=0.275, α_pos=0.55, ortho_str=0.2, mask_w=0.18, mask_τ=0.25)
+2026-07-10 20:57:53,181 | ============================================================
+2026-07-10 20:57:53,631 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:57:53,632 | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+2026-07-10 20:57:53,681 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 20:57:53,965 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:54,228 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:54,494 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/pytorch_model.bin "HTTP/1.1 302 Found"
+2026-07-10 20:57:54,765 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/model.safetensors "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:55,031 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco "HTTP/1.1 200 OK"
+2026-07-10 20:57:55,317 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/main "HTTP/1.1 200 OK"
+2026-07-10 20:57:55,589 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/discussions?p=0 "HTTP/1.1 200 OK"
+2026-07-10 20:57:55,859 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/commits/refs%2Fpr%2F5 "HTTP/1.1 200 OK"
+2026-07-10 20:57:56,115 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors.index.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:56,411 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/refs%2Fpr%2F5/model.safetensors "HTTP/1.1 302 Found"
+2026-07-10 20:57:57,334 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:57,597 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:57:57,648 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 20:57:57,919 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:58,183 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:57:58,232 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 20:57:58,501 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:58,763 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:59,032 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:59,307 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/chat_template.jinja "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:59,576 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/audio_tokenizer_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:57:59,845 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:58:00,117 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:58:00,168 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 20:58:00,443 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/processor_config.json "HTTP/1.1 404 Not Found"
+2026-07-10 20:58:00,714 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/preprocessor_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:58:00,763 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/preprocessor_config.json "HTTP/1.1 200 OK"
+2026-07-10 20:58:01,030 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:58:01,080 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/config.json "HTTP/1.1 200 OK"
+2026-07-10 20:58:01,365 | HTTP Request: HEAD https://huggingface.co/Salesforce/blip-itm-large-coco/resolve/main/tokenizer_config.json "HTTP/1.1 307 Temporary Redirect"
+2026-07-10 20:58:01,415 | HTTP Request: HEAD https://huggingface.co/api/resolve-cache/models/Salesforce/blip-itm-large-coco/19502f1e215844f7e48bd48473f86932486d3441/tokenizer_config.json "HTTP/1.1 200 OK"
+2026-07-10 20:58:01,707 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main/additional_chat_templates?recursive=false&expand=false "HTTP/1.1 404 Not Found"
+2026-07-10 20:58:01,978 | HTTP Request: GET https://huggingface.co/api/models/Salesforce/blip-itm-large-coco/tree/main?recursive=true&expand=false "HTTP/1.1 200 OK"
+2026-07-10 20:58:02,638 | Resume từ checkpoint: Đã chạy xong 2064/2064 queries.
+2026-07-10 20:58:29,960 | 
+====== Results for Hits@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 81.25%
+	 Dialog Length: 2: 85.47%
+	 Dialog Length: 3: 87.89%
+	 Dialog Length: 4: 89.83%
+	 Dialog Length: 5: 91.18%
+	 Dialog Length: 6: 91.72%
+	 Dialog Length: 7: 92.54%
+	 Dialog Length: 8: 92.93%
+	 Dialog Length: 9: 93.31%
+	 Dialog Length: 10: 93.9%
+====== Results for Recall@10 ======
+	 Dialog Length: 0: 73.4%
+	 Dialog Length: 1: 76.84%
+	 Dialog Length: 2: 78.78%
+	 Dialog Length: 3: 79.41%
+	 Dialog Length: 4: 80.43%
+	 Dialog Length: 5: 80.28%
+	 Dialog Length: 6: 80.57%
+	 Dialog Length: 7: 80.81%
+	 Dialog Length: 8: 79.51%
+	 Dialog Length: 9: 79.46%
+	 Dialog Length: 10: 79.55%
+====== Best log Rank Integral ======
+	 BRI: 0.6700
+2026-07-10 20:58:30,040 | Results saved to logs_batch/beliefs_llama3_1_8b/nacir_plus_plugplay_ranks.npz
