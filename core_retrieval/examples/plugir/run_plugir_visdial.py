@@ -1,10 +1,3 @@
-"""
-NACIR++ Plug-and-Play — Ví dụ 1: Tái lập kết quả PlugIR/VisDial gốc (Batched Version)
-========================================================================
-Phiên bản chạy nhanh (Batched) hỗ trợ Checkpoint/Resume và Dynamic Schedule
-dựa trên adapters của thư mục CORE_NACIR.
-"""
-
 import logging
 import os
 import sys
@@ -20,22 +13,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from nacir_plusplus.config import OPTIMAL_CONFIG
 from nacir_plusplus.adapters.belief_sources import PrecomputedBeliefSource
-from nacir_plusplus.adapters.blip_backbone import build_blip_backbone
+from nacir_plusplus.adapters.plugir_backbone import build_plugir_backbone
 from nacir_plusplus.adapters.visdial_corpus import Corpus, Queries
 from nacir_plusplus.core.query_update import NACIRPlusPlusBatchUpdater
 from nacir_plusplus.core.reranker import rerank_topk_with_lookup
 from nacir_plusplus.metrics import compute_metrics, format_metrics_report
 
-# ============================================================
-# Cấu hình đường dẫn 
-# ============================================================
-
+# Path Configurations
 DATA_DIR = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/Dataset/PlugIR"
 QUERIES_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/PlugIR/dialogues/VisDial_v1.0_queries_val.json"
 PLUGIR_QUERIES_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR/dialogues/ours_final_q_n_5_recall_hitting_10_thres_low_500_recon_true_referring_true_filtering_true_select_true_reconed.json"
 CACHE_CORPUS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/ChatIR/temp/corpus_blip_large.pth"
 CORPUS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/PlugIR/Protocol/Search_Space_val_50k.json"
-BELIEFS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR/data/semantic_beliefs.json"
+BELIEFS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/CORE_NACIR_sub/data_sub/beliefs_llama3_1_8b.json"
 OUTPUT_DIR = "logs"
 
 BATCH_SIZE = 64
@@ -51,9 +41,9 @@ def main():
     global OUTPUT_DIR, RERANK_K
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--beliefs_path", type=str, nargs='+', required=True, help="Danh sách các file JSON beliefs")
-    parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR)
-    parser.add_argument("--rerank_k", type=int, default=RERANK_K)
+    parser.add_argument("--beliefs_path", type=str, nargs='+', required=True, help="List of belief JSON files")
+    parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR, help="Output directory for logs and results")
+    parser.add_argument("--rerank_k", type=int, default=RERANK_K, help="Number of top candidates to re-rank")
     args = parser.parse_args()
     
     OUTPUT_DIR = args.output_dir
@@ -61,20 +51,17 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    print("=" * 60)
-    print("NACIR++ Plug-and-Play (BATCHED JSON MODE)")
-    print(f"Config: {OPTIMAL_CONFIG}")
-    print("=" * 60)
+    print(f"Starting NACIR++ Plug-and-Play (BATCHED JSON MODE) with Config: {OPTIMAL_CONFIG}")
 
     # 1. Backbone Adapters
-    text_encoder, image_encoder, itm_scorer = build_blip_backbone(device)
+    text_encoder, image_encoder, itm_scorer = build_plugir_backbone(device)
 
     corpus_dataset = Corpus(DATA_DIR, CORPUS_PATH, image_encoder.preprocess)
     corpus_ids, corpus_vectors = torch.load(CACHE_CORPUS_PATH, map_location=device)
     with open(CORPUS_PATH) as f:
         corpus_paths = [os.path.join(DATA_DIR, p) for p in json.load(f)]
 
-    # Căn lặp vector nếu cache không khớp thứ tự
+    # Align corpus vectors if cache order doesn't match
     corpus_ids_list = corpus_ids.tolist() if torch.is_tensor(corpus_ids) else list(corpus_ids)
     if corpus_ids_list != list(range(len(corpus_paths))):
         reordered = torch.empty_like(corpus_vectors)
@@ -84,7 +71,7 @@ def main():
     def corpus_ref_lookup(idx: int) -> str:
         return corpus_paths[idx]
 
-    # 2. Dữ liệu hội thoại
+    # 2. Conversational Data
     dataset = Queries(PLUGIR_QUERIES_PATH, DATA_DIR, split=True)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
@@ -92,8 +79,8 @@ def main():
         original_queries = json.load(f)
     num_queries = len(original_queries)
 
-    # 4. Precompute Text Embeddings (CHỈ 1 LẦN DUY NHẤT)
-    print("\n>>> Đang trích xuất Text Embeddings (Chạy 1 lần duy nhất)...")
+    # 4. Precompute Text Embeddings (Once)
+    print("Extracting Text Embeddings (One-time process)...")
     all_text_embs = []
     for dl in range(NUM_ROUNDS):
         dataset.dialog_length = dl
@@ -102,13 +89,13 @@ def main():
             round_embs.append(text_encoder.encode(batch["text"]))
         all_text_embs.append(torch.cat(round_embs))
 
-    # 5. LOOP QUA TỪNG MÔ HÌNH JSON
+    # 5. Iterate through belief models
     for belief_file in args.beliefs_path:
         model_name = os.path.splitext(os.path.basename(belief_file))[0]
         output_dir = os.path.join(OUTPUT_DIR, model_name)
         os.makedirs(output_dir, exist_ok=True)
 
-        # Setup Logging cho model này
+        # Setup Logging for this model
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
         logging.basicConfig(
@@ -120,11 +107,11 @@ def main():
             ],
         )
         logger = logging.getLogger(__name__)
-        logger.info(f"\n{'='*60}\n>>> 🎯 ĐANG CHẠY MÔ HÌNH: {model_name}\n>>> 📄 File: {belief_file}\n{'='*60}")
+        logger.info(f"Running model: {model_name} (File: {belief_file})")
 
         belief_source = PrecomputedBeliefSource.from_json(belief_file, turn_offset=-1)
 
-        # Checkpoint Resume Logic (RIÊNG CHO TỪNG MÔ HÌNH)
+        # Checkpoint Resume Logic
         checkpoint_path = os.path.join(output_dir, "checkpoint.pkl")
         if os.path.exists(checkpoint_path):
             with open(checkpoint_path, 'rb') as f:
@@ -132,7 +119,7 @@ def main():
                 ranks_per_round = checkpoint['ranks_per_round']
                 top_k_per_round = checkpoint.get('top_k_per_round', [[] for _ in range(NUM_ROUNDS)])
             start_batch_idx = len(ranks_per_round[0])
-            logger.info(f"Resume từ checkpoint: Đã chạy xong {start_batch_idx}/{num_queries} queries.")
+            logger.info(f"Resuming from checkpoint: Completed {start_batch_idx}/{num_queries} queries.")
         else:
             ranks_per_round = [[] for _ in range(NUM_ROUNDS)]
             top_k_per_round = [[] for _ in range(NUM_ROUNDS)]
@@ -201,7 +188,7 @@ def main():
 
             with open(checkpoint_path, 'wb') as f:
                 pickle.dump({'ranks_per_round': ranks_per_round, 'top_k_per_round': top_k_per_round}, f)
-            logger.info(f"Đã lưu checkpoint tại {checkpoint_path} (xong batch {i//BATCH_SIZE + 1}/{total_batches})")
+            logger.info(f"Checkpoint saved to {checkpoint_path} (completed batch {i//BATCH_SIZE + 1}/{total_batches})")
 
         metrics = compute_metrics(ranks_per_round, k=10)
         logger.info("\n" + format_metrics_report(metrics, k=10))
