@@ -1,6 +1,9 @@
-import os
-import sys
-import time
+"""PlugIR adapter for NACIR++.
+
+This module exposes text encoding, image encoding, and ITM scoring
+interfaces for PlugIR-based retrieval backbones.
+"""
+
 import logging
 import concurrent.futures
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -12,8 +15,13 @@ from transformers import AutoProcessor, BlipForImageTextRetrieval
 
 logger = logging.getLogger(__name__)
 
-# Override HuggingFace BLIP to return normalized embeddings
+IMAGE_LOAD_TIMEOUT_SEC = 60.0
+DEFAULT_ITM_BATCH_SIZE = 16
+DEFAULT_MODEL_ID = "Salesforce/blip-itm-large-coco"
+
 class BlipForRetrieval(BlipForImageTextRetrieval):
+    """BLIP retrieval model that returns normalized embeddings."""
+
     def get_text_features(
         self,
         input_ids: torch.LongTensor,
@@ -43,14 +51,16 @@ class BlipForRetrieval(BlipForImageTextRetrieval):
         )
         return F.normalize(self.vision_proj(vision_outputs[0][:, 0, :]), dim=-1)
 
-# Encode text inputs into normalized vectors
 class TextEncoder:
+    """Encode text inputs into normalized vectors."""
+
     def __init__(self, model: BlipForRetrieval, processor: AutoProcessor, device: str):
         self.model = model
         self.processor = processor
         self.device = device
 
-    def encode(self, texts: Union[str, List[str]]) -> torch.Tensor:
+    def encode_text(self, texts: Union[str, List[str]]) -> torch.Tensor:
+        """Encode one or more text strings into normalized embeddings."""
         if isinstance(texts, str):
             texts = [texts]
         inputs = self.processor(text=texts, padding=True, truncation=True, return_tensors="pt")
@@ -58,29 +68,39 @@ class TextEncoder:
         with torch.no_grad():
             return self.model.get_text_features(**inputs)
 
-# Encode images into normalized vectors
+    def encode(self, texts: Union[str, List[str]]) -> torch.Tensor:
+        """Backward-compatible alias for text encoding."""
+        return self.encode_text(texts)
+
 class ImageEncoder:
+    """Encode images into normalized vectors."""
+
     def __init__(self, model: BlipForRetrieval, processor: AutoProcessor, device: str):
         self.model = model
         self.processor = processor
         self.device = device
 
-    # Preprocess a single image path
     def preprocess(self, path: str):
         return self.processor(images=Image.open(path), return_tensors="pt")["pixel_values"][0]
 
-    @torch.no_grad()
-    def encode_batch(self, pixel_values: torch.Tensor) -> torch.Tensor:
+    def encode_image(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        """Encode a batch of images into normalized embeddings."""
         return self.model.get_image_features(pixel_values.to(self.device))
 
-# Score image-text pairs using ITM head with fast caching
+    @torch.no_grad()
+    def encode_batch(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        """Backward-compatible alias for image encoding."""
+        return self.encode_image(pixel_values)
+
 class ITMScorer:
+    """Score image-text pairs using the ITM head."""
+
     def __init__(
         self,
         model: BlipForRetrieval,
         processor: AutoProcessor,
         device: str,
-        batch_size: int = 16,
+        batch_size: int = DEFAULT_ITM_BATCH_SIZE,
         cache_size: Optional[int] = None,
     ):
         self.model = model
@@ -106,7 +126,6 @@ class ITMScorer:
         except Exception:
             return None, False
 
-    # Cache ViT image embeddings for unseen paths
     @torch.no_grad()
     def _ensure_embeds_cached(self, image_paths: List[str]) -> None:
         to_compute = [
@@ -121,7 +140,7 @@ class ITMScorer:
 
             executor = concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(batch_paths)))
             futures_map = {executor.submit(self._load_image, p): p for p in batch_paths}
-            done, not_done = concurrent.futures.wait(futures_map.keys(), timeout=60.0)
+            done, not_done = concurrent.futures.wait(futures_map.keys(), timeout=IMAGE_LOAD_TIMEOUT_SEC)
 
             valid_paths = []
             valid_images = []
@@ -157,9 +176,9 @@ class ITMScorer:
 
             self._evict_if_needed()
 
-    # Score textual query against a list of candidate image paths
     @torch.no_grad()
-    def score(self, query_text: str, image_refs: List[str]) -> torch.Tensor:
+    def score_itm(self, query_text: str, image_refs: List[str]) -> torch.Tensor:
+        """Score a text query against a batch of candidate image paths."""
         self._ensure_embeds_cached(image_refs)
 
         all_scores = []
@@ -202,9 +221,14 @@ class ITMScorer:
 
         return torch.cat(all_scores)
 
-# Build the BLIP-ITM backbone adapter
-def build_plugir_backbone(device: str, model_id: str = "Salesforce/blip-itm-large-coco") -> Tuple:
-    logger.info(f"Loading BLIP-ITM backbone: {model_id}")
+    def score(self, query_text: str, image_refs: List[str]) -> torch.Tensor:
+        """Backward-compatible alias for ITM scoring."""
+        return self.score_itm(query_text, image_refs)
+
+
+def build_backbone(device: str, model_id: str = DEFAULT_MODEL_ID) -> Tuple:
+    """Build the PlugIR BLIP-ITM backbone adapter."""
+    logger.info("Loading BLIP-ITM backbone: %s", model_id)
     model = BlipForRetrieval.from_pretrained(model_id).to(device)
     processor = AutoProcessor.from_pretrained(model_id)
     return (
@@ -212,3 +236,8 @@ def build_plugir_backbone(device: str, model_id: str = "Salesforce/blip-itm-larg
         ImageEncoder(model, processor, device),
         ITMScorer(model, processor, device),
     )
+
+
+def build_plugir_backbone(device: str, model_id: str = DEFAULT_MODEL_ID) -> Tuple:
+    """Backward-compatible alias for PlugIR backbone construction."""
+    return build_backbone(device, model_id)

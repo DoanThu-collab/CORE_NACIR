@@ -1,32 +1,38 @@
+"""Example evaluation script for NACIR++ using the PlugIR backbone."""
+
+import argparse
+import json
 import logging
 import os
-import sys
-import argparse
 import pickle
-import json
+import sys
+from pathlib import Path
 
 import numpy as np
 import torch
 from tqdm import tqdm
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+CORE_RETRIEVAL_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = CORE_RETRIEVAL_ROOT.parent
+
+if str(CORE_RETRIEVAL_ROOT) not in sys.path:
+    sys.path.insert(0, str(CORE_RETRIEVAL_ROOT))
 
 from nacir_plusplus.config import OPTIMAL_CONFIG
 from nacir_plusplus.adapters.belief_sources import PrecomputedBeliefSource
-from nacir_plusplus.adapters.plugir_backbone import build_plugir_backbone
+from nacir_plusplus.adapters.plugir_backbone import build_backbone
 from nacir_plusplus.adapters.visdial_corpus import Corpus, Queries
 from nacir_plusplus.core.query_update import NACIRPlusPlusBatchUpdater
 from nacir_plusplus.core.reranker import rerank_topk_with_lookup
 from nacir_plusplus.metrics import compute_metrics, format_metrics_report
 
-# Path Configurations
-DATA_DIR = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/Dataset/PlugIR"
-QUERIES_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/PlugIR/dialogues/VisDial_v1.0_queries_val.json"
-PLUGIR_QUERIES_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR/dialogues/ours_final_q_n_5_recall_hitting_10_thres_low_500_recon_true_referring_true_filtering_true_select_true_reconed.json"
-CACHE_CORPUS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/ChatIR/temp/corpus_blip_large.pth"
-CORPUS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/PlugIR_Workspace/PlugIR/Protocol/Search_Space_val_50k.json"
-BELIEFS_PATH = "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/CORE_NACIR_sub/data_sub/beliefs_llama3_1_8b.json"
-OUTPUT_DIR = "logs"
+DATA_DIR = Path(os.environ.get("NACIR_DATA_DIR", "/path/to/dataset"))
+QUERIES_PATH = Path(os.environ.get("NACIR_QUERIES_PATH", "/path/to/queries.json"))
+PLUGIR_QUERIES_PATH = Path(os.environ.get("NACIR_PLUGIR_QUERIES_PATH", "/path/to/plugir_queries.json"))
+CACHE_CORPUS_PATH = Path(os.environ.get("NACIR_CACHE_CORPUS_PATH", "/path/to/corpus_cache.pth"))
+CORPUS_PATH = Path(os.environ.get("NACIR_CORPUS_PATH", "/path/to/corpus.json"))
+BELIEFS_PATH = Path(os.environ.get("NACIR_BELIEFS_PATH", "/path/to/beliefs.json"))
+OUTPUT_DIR = PROJECT_ROOT / "outputs" / "plugir"
 
 BATCH_SIZE = 64
 ITM_BATCH_SIZE = 16
@@ -42,21 +48,20 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--beliefs_path", type=str, nargs='+', required=True, help="List of belief JSON files")
-    parser.add_argument("--output_dir", type=str, default=OUTPUT_DIR, help="Output directory for logs and results")
+    parser.add_argument("--output_dir", type=str, default=str(OUTPUT_DIR), help="Output directory for logs and results")
     parser.add_argument("--rerank_k", type=int, default=RERANK_K, help="Number of top candidates to re-rank")
     args = parser.parse_args()
     
-    OUTPUT_DIR = args.output_dir
+    OUTPUT_DIR = Path(args.output_dir)
     RERANK_K = args.rerank_k
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    print(f"Starting NACIR++ Plug-and-Play (BATCHED JSON MODE) with Config: {OPTIMAL_CONFIG}")
+    print(f"Starting NACIR++ Plug-and-Play with config: {OPTIMAL_CONFIG}")
 
-    # 1. Backbone Adapters
-    text_encoder, image_encoder, itm_scorer = build_plugir_backbone(device)
+    text_encoder, image_encoder, itm_scorer = build_backbone(device)
 
-    corpus_dataset = Corpus(DATA_DIR, CORPUS_PATH, image_encoder.preprocess)
+    corpus_dataset = Corpus(str(DATA_DIR), str(CORPUS_PATH), image_encoder.preprocess)
     corpus_ids, corpus_vectors = torch.load(CACHE_CORPUS_PATH, map_location=device)
     with open(CORPUS_PATH) as f:
         corpus_paths = [os.path.join(DATA_DIR, p) for p in json.load(f)]
@@ -71,16 +76,14 @@ def main():
     def corpus_ref_lookup(idx: int) -> str:
         return corpus_paths[idx]
 
-    # 2. Conversational Data
-    dataset = Queries(PLUGIR_QUERIES_PATH, DATA_DIR, split=True)
+    dataset = Queries(str(PLUGIR_QUERIES_PATH), str(DATA_DIR), split=True)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 
     with open(QUERIES_PATH) as f:
         original_queries = json.load(f)
     num_queries = len(original_queries)
 
-    # 4. Precompute Text Embeddings (Once)
-    print("Extracting Text Embeddings (One-time process)...")
+    print("Extracting text embeddings...")
     all_text_embs = []
     for dl in range(NUM_ROUNDS):
         dataset.dialog_length = dl
@@ -89,43 +92,39 @@ def main():
             round_embs.append(text_encoder.encode(batch["text"]))
         all_text_embs.append(torch.cat(round_embs))
 
-    # 5. Iterate through belief models
     for belief_file in args.beliefs_path:
         model_name = os.path.splitext(os.path.basename(belief_file))[0]
-        output_dir = os.path.join(OUTPUT_DIR, model_name)
-        os.makedirs(output_dir, exist_ok=True)
+        output_dir = OUTPUT_DIR / model_name
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Setup Logging for this model
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s | %(message)s",
             handlers=[
-                logging.FileHandler(os.path.join(output_dir, "run_log.txt")),
+                logging.FileHandler(str(output_dir / "run_log.txt")),
                 logging.StreamHandler(),
             ],
         )
         logger = logging.getLogger(__name__)
-        logger.info(f"Running model: {model_name} (File: {belief_file})")
+        logger.info("Running model: %s (file: %s)", model_name, belief_file)
 
         belief_source = PrecomputedBeliefSource.from_json(belief_file, turn_offset=-1)
 
-        # Checkpoint Resume Logic
-        checkpoint_path = os.path.join(output_dir, "checkpoint.pkl")
+        checkpoint_path = output_dir / "checkpoint.pkl"
         if os.path.exists(checkpoint_path):
-            with open(checkpoint_path, 'rb') as f:
+            with open(checkpoint_path, "rb") as f:
                 checkpoint = pickle.load(f)
-                ranks_per_round = checkpoint['ranks_per_round']
-                top_k_per_round = checkpoint.get('top_k_per_round', [[] for _ in range(NUM_ROUNDS)])
+                ranks_per_round = checkpoint["ranks_per_round"]
+                top_k_per_round = checkpoint.get("top_k_per_round", [[] for _ in range(NUM_ROUNDS)])
             start_batch_idx = len(ranks_per_round[0])
-            logger.info(f"Resuming from checkpoint: Completed {start_batch_idx}/{num_queries} queries.")
+            logger.info("Resuming from checkpoint: completed %s/%s queries.", start_batch_idx, num_queries)
         else:
             ranks_per_round = [[] for _ in range(NUM_ROUNDS)]
             top_k_per_round = [[] for _ in range(NUM_ROUNDS)]
             start_batch_idx = 0
 
-        # Batched Retrieval Loop
         total_overrides = 0
         total_batches = num_queries // BATCH_SIZE + (1 if num_queries % BATCH_SIZE != 0 else 0)
         initial_batch = start_batch_idx // BATCH_SIZE
@@ -168,7 +167,7 @@ def main():
 
                 for b in range(batch_size_actual):
                     top_rerank = ranked[b, :RERANK_K]
-                    q_text_str = dataset.queries[i+b]['dialog'][t]
+                    q_text_str = dataset.queries[i+b]["dialog"][t]
                     
                     reranked_indices, _ = rerank_topk_with_lookup(
                         query_text=q_text_str,
@@ -186,16 +185,16 @@ def main():
 
             total_overrides += updater.get_batch_stats()["total_overrides"]
 
-            with open(checkpoint_path, 'wb') as f:
+            with open(checkpoint_path, "wb") as f:
                 pickle.dump({'ranks_per_round': ranks_per_round, 'top_k_per_round': top_k_per_round}, f)
-            logger.info(f"Checkpoint saved to {checkpoint_path} (completed batch {i//BATCH_SIZE + 1}/{total_batches})")
+            logger.info("Checkpoint saved to %s (completed batch %s/%s)", checkpoint_path, i // BATCH_SIZE + 1, total_batches)
 
         metrics = compute_metrics(ranks_per_round, k=10)
         logger.info("\n" + format_metrics_report(metrics, k=10))
 
-        save_path = os.path.join(output_dir, "nacir_plus_plugplay_ranks.npz")
+        save_path = output_dir / "nacir_plus_plugplay_ranks.npz"
         np.savez_compressed(save_path, ranks_per_round=np.array(ranks_per_round, dtype=object))
-        logger.info(f"Results saved to {save_path}")
+        logger.info("Results saved to %s", save_path)
 
 if __name__ == "__main__":
     main()
