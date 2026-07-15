@@ -1,50 +1,377 @@
-# NACIR: Negative-aware Adaptive Concept Interactive Retrieval
+# NACIR
 
-Official implementation of the paper **NACIR: Negative-aware Adaptive Concept Interactive Retrieval** for multi-turn image retrieval.
+NACIR is a plug-and-play retrieval refinement framework for conversational image retrieval. It can be integrated with different retrieval backbones (e.g., PlugIR) without modifying the backbone itself.
 
-## 🚀 Execution Pipeline (Two-Stage Architecture)
+---
 
-To maximize efficiency and prevent Out-Of-Memory (OOM) errors during hyperparameter tuning, the NACIR framework is purposefully decoupled into two independent execution stages:
-
-### Step 1: Offline Semantic Parsing (`step1_semantic_parsing/`)
-- **What it does:** Uses Large Language Models (e.g., LLaMA-3.1 8B, Qwen) or Rule-based engines to parse the entire dialogue dataset into structured positive/negative beliefs via zero-shot comprehension.
-- **Why offline?** LLM inference is computationally expensive. By running it once and saving the output to `.json` files, we avoid running LLMs repeatedly and reduce GPU memory overhead.
-
-### Step 2: Online Core Retrieval (`step2_core_retrieval/`)
-- **What it does:** The lightweight algorithmic core of NACIR. It loads the pre-computed `.json` beliefs and executes the fast retrieval pipeline: Concept Memory Board $\rightarrow$ Gram-Schmidt Orthogonal Projection $\rightarrow$ Negative Concept Masking $\rightarrow$ BLIP ITM Re-ranking.
-- **Why online?** This decoupling allows researchers to run the core retrieval pipeline hundreds of times in mere minutes for rapid hyperparameter tuning without the bottleneck of LLM inference.
-
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
-NACIR_Release/
-├── README.md
-├── step1_semantic_parsing/
-│   ├── dual_extractor.py               # Single-pass LLM & Rule-based extraction logic
-│   ├── run_semantic_parser.py          # Script for batch parsing dialogues
-│   └── sample_beliefs/                 # Sample pre-computed beliefs (e.g., LLaMA-3.1 8B)
-│
-└── step2_core_retrieval/
-    ├── nacir_plusplus/                 # Core retrieval algorithms
-    ├── examples/                       # Adapter scripts for base methods (e.g., PlugIR)
-    └── scripts/                        # Execution scripts
+.
+├── adapters/
+│   └── plugir_backbone.py      # Adapter between PlugIR and NACIR
+├── pipeline.py                 # Main NACIR pipeline
+├── schedule.py                 # Dynamic scheduling strategy
+├── schema.py                   # Shared data structures
+├── config.py                   # Hyperparameter configuration
+├── metrics.py                  # Evaluation metrics
+├── utils.py
+└── run_plugir.py               # Example entry point
 ```
 
-## 🛠️ Usage
+---
 
-### 1. Generate Beliefs (Step 1)
-Run the semantic parser to generate beliefs for your dialogue dataset:
+## Pipeline
+
+The execution flow is illustrated below:
+
+```
+Dialogue
+    │
+    ▼
+PlugIR
+    │
+    ▼
+Text / Image Embeddings
+    │
+    ▼
+NACIR Pipeline
+    │
+    ├── Semantic Parsing
+    ├── Concept Memory Update
+    ├── Dynamic Orthogonal Projection
+    ├── Region-Level Masking
+    └── ITM Re-ranking
+    │
+    ▼
+Final Retrieval Ranking
+```
+
+`pipeline.py` is the main entry point of NACIR, which coordinates all refinement stages.
+
+---
+
+## Core Files
+
+### `pipeline.py`
+
+The main retrieval pipeline.
+
+Responsibilities:
+
+- Receive embeddings from the backbone.
+- Update concept memory.
+- Apply dynamic projection.
+- Perform region masking.
+- Execute ITM re-ranking.
+- Return the final ranked results.
+
+---
+
+### `schedule.py`
+
+Defines the dynamic scheduling strategy.
+
+It controls how strongly NACIR applies projection, masking, and re-ranking at different dialogue turns.
+
+---
+
+### `schema.py`
+
+Defines the shared data structures used across the framework, including dialogue state, concept memory, and retrieval outputs.
+
+---
+
+### `config.py`
+
+Contains all configurable hyperparameters for NACIR.
+
+Examples include:
+
+- projection strength
+- masking penalty
+- scheduling parameters
+- ITM weight
+
+---
+
+### `adapters/plugir_backbone.py`
+
+Adapter that connects PlugIR with NACIR.
+
+It converts PlugIR outputs into the interfaces required by the NACIR pipeline.
+
+---
+
+## Integrating a New Retrieval Backbone
+
+NACIR is backbone-agnostic.
+
+To integrate a new conversational retrieval model, only an adapter is required.
+
+### Step 1
+
+Create a new adapter inside `adapters/`
+
+Example:
+
+```text
+adapters/
+    plugir_backbone.py
+    my_model_backbone.py
+```
+
+---
+
+### Step 2
+
+The adapter should expose the following interfaces:
+
+```python
+encode_text(...)
+encode_image(...)
+score_itm(...)
+```
+
+These methods provide the components required by NACIR.
+
+---
+
+### Step 3
+
+Initialize the pipeline with the new adapter.
+
+```python
+backbone = MyModelBackbone(...)
+
+pipeline = NACIRPipeline(
+    backbone=backbone,
+    config=config,
+)
+
+results = pipeline.run(dialogue)
+```
+
+No modification to the NACIR core is required.
+
+---
+
+## Adding New Components
+
+The framework is modular.
+
+To replace or extend any component:
+
+- Scheduling → modify `schedule.py`
+- Retrieval pipeline → modify `pipeline.py`
+- Backbone interface → add a new adapter
+- Hyperparameters → update `config.py`
+
+The remaining modules can remain unchanged.
+
+---
+
+## Running
+
+Example:
+
 ```bash
-cd step1_semantic_parsing
-python run_semantic_parser.py --backend ollama --model_name llama3.1:8b
+python run_plugir.py
 ```
 
-### 2. Run Core Retrieval (Step 2)
-Use the generated beliefs to run the interactive retrieval pipeline:
+---
+# NACIR
+
+NACIR++ is a plug-and-play retrieval refinement framework for conversational image retrieval. It can be integrated with different retrieval backbones (e.g., PlugIR) without modifying the backbone itself.
+
+---
+
+## Repository Structure
+
+```text
+.
+├── adapters/
+│   └── plugir_backbone.py      # Adapter between PlugIR and NACIR++
+├── pipeline.py                 # Main NACIR++ pipeline
+├── schedule.py                 # Dynamic scheduling strategy
+├── schema.py                   # Shared data structures
+├── config.py                   # Hyperparameter configuration
+├── metrics.py                  # Evaluation metrics
+├── utils.py
+└── run_plugir.py               # Example entry point
+```
+
+---
+
+## Pipeline
+
+The execution flow is illustrated below:
+
+```
+Dialogue
+    │
+    ▼
+PlugIR
+    │
+    ▼
+Text / Image Embeddings
+    │
+    ▼
+NACIR++ Pipeline
+    │
+    ├── Semantic Parsing
+    ├── Concept Memory Update
+    ├── Dynamic Orthogonal Projection
+    ├── Region-Level Masking
+    └── ITM Re-ranking
+    │
+    ▼
+Final Retrieval Ranking
+```
+
+`pipeline.py` is the main entry point of NACIR++, which coordinates all refinement stages.
+
+---
+
+## Core Files
+
+### `pipeline.py`
+
+The main retrieval pipeline.
+
+Responsibilities:
+
+- Receive embeddings from the backbone.
+- Update concept memory.
+- Apply dynamic projection.
+- Perform region masking.
+- Execute ITM re-ranking.
+- Return the final ranked results.
+
+---
+
+### `schedule.py`
+
+Defines the dynamic scheduling strategy.
+
+It controls how strongly NACIR++ applies projection, masking, and re-ranking at different dialogue turns.
+
+---
+
+### `schema.py`
+
+Defines the shared data structures used across the framework, including dialogue state, concept memory, and retrieval outputs.
+
+---
+
+### `config.py`
+
+Contains all configurable hyperparameters for NACIR++.
+
+Examples include:
+
+- projection strength
+- masking penalty
+- scheduling parameters
+- ITM weight
+
+---
+
+### `adapters/plugir_backbone.py`
+
+Adapter that connects PlugIR with NACIR++.
+
+It converts PlugIR outputs into the interfaces required by the NACIR++ pipeline.
+
+---
+
+## Integrating a New Retrieval Backbone
+
+NACIR++ is backbone-agnostic.
+
+To integrate a new conversational retrieval model, only an adapter is required.
+
+### Step 1
+
+Create a new adapter inside `adapters/`
+
+Example:
+
+```text
+adapters/
+    plugir_backbone.py
+    my_model_backbone.py
+```
+
+---
+
+### Step 2
+
+The adapter should expose the following interfaces:
+
+```python
+encode_text(...)
+encode_image(...)
+score_itm(...)
+```
+
+These methods provide the components required by NACIR++.
+
+---
+
+### Step 3
+
+Initialize the pipeline with the new adapter.
+
+```python
+backbone = MyModelBackbone(...)
+
+pipeline = NACIRPipeline(
+    backbone=backbone,
+    config=config,
+)
+
+results = pipeline.run(dialogue)
+```
+
+No modification to the NACIR++ core is required.
+
+---
+
+## Adding New Components
+
+The framework is modular.
+
+To replace or extend any component:
+
+- Scheduling → modify `schedule.py`
+- Retrieval pipeline → modify `pipeline.py`
+- Backbone interface → add a new adapter
+- Hyperparameters → update `config.py`
+
+The remaining modules can remain unchanged.
+
+---
+
+## Running
+
+Example:
+
 ```bash
-cd step2_core_retrieval/scripts
-bash run_batch_1.sh
+python run_plugir.py
 ```
 
-## 📝 Citation
-If you find our work useful, please consider citing our paper.
+---
+
+## Citation
+
+If you find NACIR++ useful in your research, please consider citing our work:
+
+```bibtex
+@inproceedings{2026nacir,
+  title     = {NACIR: Negative-aware Adaptive Concept Interactive Retrieval for Conversational Image Retrieval},
+  author    = {Thu Doan Nguyen Minh, Thuy Nguyen Thi Nhu},
+  booktitle = {Proceedings of the IEEE RIVF International Conference on Computing and Communication Technologies},
+  year      = {2026}
+}
+```
