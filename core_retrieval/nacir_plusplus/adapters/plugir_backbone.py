@@ -81,7 +81,9 @@ class ImageEncoder:
         self.device = device
 
     def preprocess(self, path: str):
-        return self.processor(images=Image.open(path), return_tensors="pt")["pixel_values"][0]
+        """Preprocess a single image path into BLIP pixel values."""
+        with Image.open(path) as image:
+            return self.processor(images=image, return_tensors="pt")["pixel_values"][0]
 
     def encode_image(self, pixel_values: torch.Tensor) -> torch.Tensor:
         """Encode a batch of images into normalized embeddings."""
@@ -184,9 +186,11 @@ class ITMScorer:
         all_scores = []
         for i in range(0, len(image_refs), self.batch_size):
             batch_paths = image_refs[i:i + self.batch_size]
-            
-            valid_paths = [p for p in batch_paths
-                           if p not in self._invalid_paths and p in self._embeds_cache]
+
+            valid_paths = [
+                p for p in batch_paths
+                if p not in self._invalid_paths and p in self._embeds_cache
+            ]
 
             batch_scores = torch.full((len(batch_paths),), -100.0, device=self.device)
 

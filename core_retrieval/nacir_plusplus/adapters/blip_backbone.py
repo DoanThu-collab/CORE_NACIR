@@ -1,264 +1,322 @@
-"""
-NACIR++ Plug-and-Play — BLIP Backbone Adapter
-=================================================
-Đây là adapter CỤ THỂ dùng để tái lập chính xác kết quả gốc (BRI = 0.6861)
-của pipeline PlugIR/VisDial + BLIP. Nó implement 2 interface chuẩn hoá:
+"""BLIP backbone adapter for NACIR++.
 
-    - TextEncoder  (core/query_update.py cũ gọi qua `encoder` lambda + main.py
-                    gọi qua `dialog_encoder` lambda)
-    - ImageScorer  (core/reranker.py cũ — ITMReranker.compute_itm_score)
-
-Toàn bộ logic BLIP-specific (get_text_features/get_image_features override,
-đọc ảnh đa luồng, phạt ảnh lỗi load bằng -100.0...) được giữ nguyên 100% so
-với bản gốc — chỉ đóng gói lại thành class tuân theo interface chung, để bất
-kỳ backbone nào khác (CLIP, SigLIP, hay model nội bộ của method khác) có thể
-thay thế mà KHÔNG đụng vào core/pipeline.
+This module provides text encoding, image encoding, and ITM scoring
+interfaces for BLIP-based retrieval backbones.
 """
 
+import logging
+import os
+import multiprocessing as mp
+import queue
+import sys
+import time
+import numpy as np
 import concurrent.futures
-from typing import Any, Dict, List, Optional, Set
+from typing import Tuple, List, Union
+from importlib import import_module
 
 import torch
 import torch.nn.functional as F
 from PIL import Image
-from transformers import AutoProcessor, BlipForImageTextRetrieval
+from torchvision import transforms
+from torchvision.transforms.functional import InterpolationMode
 
 
-class BlipForRetrieval(BlipForImageTextRetrieval):
-    """Giữ nguyên 100% override gốc trong main.py."""
-
-    def get_text_features(
-        self,
-        input_ids: torch.LongTensor,
-        attention_mask: Optional[torch.LongTensor] = None,
-        return_dict: Optional[bool] = None,
-    ) -> torch.FloatTensor:
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        question_embeds = self.text_encoder(
-            input_ids=input_ids, attention_mask=attention_mask, return_dict=return_dict
-        )
-        question_embeds = question_embeds[0] if not return_dict else question_embeds.last_hidden_state
-        return F.normalize(self.text_proj(question_embeds[:, 0, :]), dim=-1)
-
-    def get_image_features(
-        self,
-        pixel_values: torch.FloatTensor,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-    ) -> torch.FloatTensor:
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        vision_outputs = self.vision_model(
-            pixel_values=pixel_values,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
-        )
-        return F.normalize(self.vision_proj(vision_outputs[0][:, 0, :]), dim=-1)
+IMAGE_SIZE = 224
+TEXT_MAX_LENGTH = 200
+IMAGE_LOAD_RETRIES = 3
+IMAGE_LOAD_SLEEP_SEC = 0.5
+IMAGE_LOAD_WORKERS = 25
+ITM_CHUNK_SIZE = 50
+ITM_SCORE_SCALE = 0.8
+INVALID_SCORE = -100.0
+IMAGE_LOAD_TIMEOUT_SEC = 10.0
 
 
-class BlipTextEncoder:
-    """Implement interfaces.TextEncoder bằng BLIP text encoder (giữ nguyên `dialog_encoder` gốc)."""
+def _worker_load_image(path, q):
+    """Load an image in a worker process and return raw pixel data."""
+    try:
+        img = Image.open(path).convert("RGB")
+        q.put(("ok", np.array(img)))
+    except Exception as e:
+        q.put(("error", str(e)))
 
-    def __init__(self, model: BlipForRetrieval, processor: AutoProcessor, device: str):
+
+class TextEncoder:
+    """Encode text inputs into normalized embedding vectors."""
+
+    def __init__(self, model, device):
         self.model = model
-        self.processor = processor
         self.device = device
+        self._tokenize_cache = {}
 
-    def encode(self, texts: List[str]) -> torch.Tensor:
-        inputs = self.processor(text=texts, padding=True, truncation=True, return_tensors="pt")
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
-        with torch.no_grad():
-            return self.model.get_text_features(**inputs)
+    def _tokenize_cached(self, text_key: str, texts: List[str]):
+        """Cache tokenized inputs to avoid repeated tokenization."""
+        if text_key not in self._tokenize_cache:
+            text = self.model.tokenizer(
+                texts,
+                padding="longest",
+                truncation=True,
+                max_length=TEXT_MAX_LENGTH,
+                return_tensors="pt",
+            ).to(self.device)
+            self._tokenize_cache[text_key] = text
+        return self._tokenize_cache[text_key]
+
+    def encode_text(self, texts):
+        """Encode one or more text strings into normalized embeddings."""
+        if isinstance(texts, str):
+            texts = [texts]
+
+        text_key = "|".join(texts) if len(texts) > 1 else texts[0]
+        text = self._tokenize_cached(text_key, texts)
+
+        with torch.inference_mode():
+            text_output = self.model.text_encoder(
+                text.input_ids,
+                attention_mask=text.attention_mask,
+                return_dict=True,
+                mode="text",
+            )
+            shift = self.model.text_proj(text_output.last_hidden_state[:, 0, :])
+
+        return F.normalize(shift, dim=-1)
+
+    def encode(self, texts):
+        """Backward-compatible alias for text encoding."""
+        return self.encode_text(texts)
+
+    def clear_cache(self):
+        """Clear cached tokenized inputs."""
+        self._tokenize_cache.clear()
 
 
-class BlipImageEncoder:
-    """Tương đương `ImageEmbedder` gốc trong main.py — dùng để build corpus_vectors."""
+class ImageEncoder:
+    """Encode image batches into normalized embedding vectors."""
 
-    def __init__(self, model: BlipForRetrieval, processor: AutoProcessor, device: str):
+    def __init__(self, model, device):
         self.model = model
-        self.processor = processor
         self.device = device
+        self.transform = transforms.Compose([
+            transforms.Resize((IMAGE_SIZE, IMAGE_SIZE), interpolation=InterpolationMode.BICUBIC),
+            transforms.ToTensor(),
+            transforms.Normalize(
+                (0.48145466, 0.4578275, 0.40821073),
+                (0.26862954, 0.26130258, 0.27577711),
+            ),
+        ])
+        self.preprocess = self._make_preprocess()
 
-    def preprocess(self, path: str):
-        return self.processor(images=Image.open(path), return_tensors="pt")["pixel_values"][0]
-
-    @torch.no_grad()
-    def encode_batch(self, pixel_values: torch.Tensor) -> torch.Tensor:
-        return self.model.get_image_features(pixel_values.to(self.device))
-
-
-class BlipITMScorer:
-    """
-    Implement interfaces.ImageScorer bang BLIP ITM head.
-
-    TOI UU (so voi ban goc): cache `image_embeds` (output cua `vision_model`,
-    tuc ViT) theo duong dan anh. Phan nay KHONG phu thuoc query text -- xem
-    source goc BlipForImageTextRetrieval.forward():
-
-        vision_outputs = self.vision_model(pixel_values=...)
-        image_embeds = vision_outputs.last_hidden_state   # <- khong phu thuoc text
-        question_embeds = self.text_encoder(
-            input_ids=..., encoder_hidden_states=image_embeds, ...
-        )                                                  # <- phu thuoc CA HAI
-
-    Vi cung mot anh luon cho ra dung cung image_embeds (ham tat dinh, chay
-    trong torch.no_grad(), khong dropout o eval mode), viec cache KHONG lam
-    doi bat ky con so nao so voi ban khong cache -- chi tranh tinh lai phan
-    ViT (nang nhat) moi khi cung mot anh xuat hien lai o turn/session khac.
-    Phan cross-attention (text_encoder + itm_head) van luon duoc tinh lai
-    moi lan goi, vi no phu thuoc truc tiep vao query_text.
-
-    Hanh vi phat anh loi load bang -100.0 va doc anh da luong duoc giu
-    nguyen 100% so voi ban goc.
-    """
-
-    def __init__(
-        self,
-        model: BlipForRetrieval,
-        processor: AutoProcessor,
-        device: str,
-        batch_size: int = 16,
-        cache_size: Optional[int] = None,
-    ):
-        self.model = model
-        self.processor = processor
-        self.device = device
-        self.batch_size = batch_size
-        # cache_size=None -> giu toan bo embeds da tinh trong RAM (mac dinh).
-        # Dat mot so nguyen neu corpus qua lon de gioi han RAM (FIFO eviction).
-        self.cache_size = cache_size
-        self._embeds_cache: Dict[str, torch.Tensor] = {}   # path -> image_embeds [seq, dim] (luu tren CPU)
-        self._cache_order: List[str] = []
-        self._invalid_paths: Set[str] = set()               # anh loi load -> luon phat -100.0
-
-    def _evict_if_needed(self) -> None:
-        if self.cache_size is None:
-            return
-        while len(self._embeds_cache) > self.cache_size:
-            oldest = self._cache_order.pop(0)
-            self._embeds_cache.pop(oldest, None)
-
-    @staticmethod
-    def _load_image(path: str):
-        try:
-            return Image.open(path).convert("RGB"), True
-        except Exception:
-            return None, False
-
-    @torch.no_grad()
-    def _ensure_embeds_cached(self, image_paths: List[str]) -> None:
-        """Tinh image_embeds (chi phan vision_model) cho cac path CHUA co trong cache."""
-        to_compute = [
-            p for p in dict.fromkeys(image_paths)  # unique, giu thu tu
-            if p not in self._embeds_cache and p not in self._invalid_paths
-        ]
-        if not to_compute:
-            return
-
-        for i in range(0, len(to_compute), self.batch_size):
-            batch_paths = to_compute[i:i + self.batch_size]
-
-            # Dùng submit + wait(timeout) thay cho with-block để tránh D-state NAS hang.
-            # - Ảnh timeout: bỏ qua lần này, KHÔNG thêm vào _invalid_paths → lần sau retry.
-            # - Ảnh lỗi thực sự (Exception): thêm vào _invalid_paths → gán -100.0 vĩnh viễn.
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=min(32, len(batch_paths)))
-            futures_map = {executor.submit(self._load_image, p): p for p in batch_paths}
-            done, not_done = concurrent.futures.wait(futures_map.keys(), timeout=60.0)
-
-            valid_paths = []
-            valid_images = []
-            for fut in futures_map:
-                p = futures_map[fut]
-                if fut in not_done:
-                    # NAS chậm / treo — bỏ qua lần này, không phạt vĩnh viễn
-                    fut.cancel()
-                    continue
+    def _make_preprocess(self):
+        def _preprocess(image_path):
+            for attempt in range(IMAGE_LOAD_RETRIES):
                 try:
-                    img, ok = fut.result()
-                    if ok:
-                        valid_paths.append(p)
-                        valid_images.append(img)
-                    else:
-                        self._invalid_paths.add(p)  # lỗi thực sự
-                except Exception:
-                    self._invalid_paths.add(p)
+                    with Image.open(image_path) as img:
+                        img = img.convert("RGB")
+                        return self.transform(img)
+                except OSError:
+                    if attempt == IMAGE_LOAD_RETRIES - 1:
+                        raise
+                    time.sleep(IMAGE_LOAD_SLEEP_SEC)
+        return _preprocess
 
-            executor.shutdown(wait=False, cancel_futures=True)
+    def encode_image(self, images_batch):
+        """Encode a batch of images into normalized embeddings."""
+        if isinstance(images_batch, dict):
+            pixel_values = images_batch["pixel_values"].to(self.device)
+        else:
+            pixel_values = images_batch.to(self.device)
 
-            if not valid_images:
-                continue
+        with torch.inference_mode():
+            embeds = self.model.visual_encoder(pixel_values)
+            projection = self.model.vision_proj(embeds[:, 0, :])
 
-            inputs = self.processor(images=valid_images, return_tensors="pt")
-            pixel_values = inputs["pixel_values"].to(self.device)
+        return F.normalize(projection, dim=-1)
 
-            vision_outputs = self.model.vision_model(pixel_values=pixel_values)
-            image_embeds = vision_outputs.last_hidden_state.detach().cpu()  # [B, seq, dim]
+    def encode(self, images_batch):
+        """Backward-compatible alias for image encoding."""
+        return self.encode_image(images_batch)
 
-            for p, emb in zip(valid_paths, image_embeds):
-                self._embeds_cache[p] = emb
-                self._cache_order.append(p)
 
-            self._evict_if_needed()
+class ITMScorer:
+    """Score image-text pairs with the ITM head."""
 
-    @torch.no_grad()
-    def score(self, query_text: str, image_refs: List[Any]) -> torch.Tensor:
-        """`image_refs` o day la danh sach duong dan anh (path)."""
-        image_paths = image_refs
+    def __init__(self, model, device, image_transform, read_timeout_sec: float = IMAGE_LOAD_TIMEOUT_SEC):
+        self.model = model
+        self.device = device
+        self.transform = image_transform
+        self.read_timeout_sec = read_timeout_sec
+        self.itm_score_scale = ITM_SCORE_SCALE
+        self._score_buffer = None
+        self._chunk_size = ITM_CHUNK_SIZE
 
-        # Buoc 1: dam bao image_embeds co san trong cache cho moi anh (chi tinh phan chua co)
-        self._ensure_embeds_cached(image_paths)
+        logger = logging.getLogger(__name__)
+        logger.info("ITM score scaling factor: %s", self.itm_score_scale)
+ 
+    @property
+    def device_(self):
+        return next(self.model.parameters()).device
+ 
+    def _load_one_image_safe(self, path: str):
+        """Load one image with a multiprocessing timeout guard."""
+        q = mp.Queue()
+        p = mp.Process(target=_worker_load_image, args=(path, q))
+        p.start()
 
-        # Buoc 2: cross-attention (text_encoder + itm_head) -- luon tinh lai vi phu thuoc query_text
-        all_scores = []
-        for i in range(0, len(image_paths), self.batch_size):
-            batch_paths = image_paths[i:i + self.batch_size]
-            # valid_paths: không lỗi vĩnh viễn VÀ đã có embed trong cache.
-            # (Ảnh bị timeout NAS sẽ không có trong cache → bỏ qua lần này,
-            #  lần sau _ensure_embeds_cached sẽ retry vì chưa có trong _invalid_paths)
-            valid_paths = [p for p in batch_paths
-                           if p not in self._invalid_paths and p in self._embeds_cache]
+        try:
+            status, data = q.get(timeout=self.read_timeout_sec)
+            p.join()
+            
+            if status == "ok":
+                raw = Image.fromarray(data)
+                tensor = self.transform(raw)
+                return tensor, True
+            else:
+                logging.warning("Image load failed for %s: %s", path, data)
+                return torch.zeros(3, IMAGE_SIZE, IMAGE_SIZE), False
+                
+        except queue.Empty:
+            logging.error("Image load timeout (> %ss): %s", self.read_timeout_sec, path)
+            p.kill()
+            p.join()
+            return torch.zeros(3, IMAGE_SIZE, IMAGE_SIZE), False
+ 
+    def _load_images_parallel(self, image_paths: List[str]):
+        """Load images in parallel using worker processes."""
+        results = [None] * len(image_paths)
+        valid_mask = [False] * len(image_paths)
 
-            batch_scores = torch.full((len(batch_paths),), -100.0, device=self.device)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=IMAGE_LOAD_WORKERS) as executor:
+            future_to_idx = {
+                executor.submit(self._load_one_image_safe, path): i
+                for i, path in enumerate(image_paths)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                tensor, is_valid = future.result()
+                results[idx] = tensor
+                valid_mask[idx] = is_valid
 
-            if valid_paths:
-                image_embeds = torch.stack([self._embeds_cache[p] for p in valid_paths]).to(self.device)
+        return torch.stack(results), torch.tensor(valid_mask, dtype=torch.bool)
+ 
+    def score_itm(self, query_text: Union[str, List[str]], image_refs: List) -> torch.Tensor:
+        """Score a query against a batch of candidate images."""
+        if isinstance(query_text, list):
+            query_text = query_text[0]
+ 
+        if len(image_refs) > 0 and isinstance(image_refs[0], str):
+            pixel_values, valid_mask = self._load_images_parallel(image_refs)
+            pixel_values = pixel_values.to(self.device)
+            valid_mask = valid_mask.to(self.device)
+        else:
+            pixel_values = image_refs.to(self.device)
+            valid_mask = torch.ones(pixel_values.size(0), dtype=torch.bool, device=self.device)
+ 
+        with torch.inference_mode():
+            num_images = pixel_values.size(0)
+
+            text = self.model.tokenizer(
+                query_text,
+                padding="longest",
+                truncation=True,
+                max_length=TEXT_MAX_LENGTH,
+                return_tensors="pt",
+            ).to(self.device)
+
+            if num_images <= self._chunk_size * 2:
+                image_embeds = self.model.visual_encoder(pixel_values)
                 image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=self.device)
 
-                text_inputs = self.processor(
-                    text=[query_text] * len(valid_paths),
-                    return_tensors="pt", padding=True, truncation=True,
-                )
-                text_inputs = {k: v.to(self.device) for k, v in text_inputs.items()}
-
-                question_embeds = self.model.text_encoder(
-                    input_ids=text_inputs["input_ids"],
-                    attention_mask=text_inputs.get("attention_mask"),
+                input_ids = text.input_ids.expand(num_images, -1)
+                attention_mask = text.attention_mask.expand(num_images, -1)
+                
+                output = self.model.text_encoder(
+                    input_ids,
+                    attention_mask=attention_mask,
                     encoder_hidden_states=image_embeds,
                     encoder_attention_mask=image_atts,
-                ).last_hidden_state
+                    return_dict=True,
+                )
+                
+                itm_logits = self.model.itm_head(output.last_hidden_state[:, 0, :])
+                scores = F.softmax(itm_logits, dim=1)[:, 1]
+            else:
+                all_scores = []
+                
+                for i in range(0, num_images, self._chunk_size):
+                    pv_chunk = pixel_values[i:i+self._chunk_size]
+                    current_batch = pv_chunk.size(0)
+                    
+                    image_embeds = self.model.visual_encoder(pv_chunk)
+                    image_atts = torch.ones(image_embeds.size()[:-1], dtype=torch.long, device=self.device)
 
-                itm_logits = self.model.itm_head(question_embeds[:, 0, :])
-                itm_probs = F.softmax(itm_logits, dim=-1)
-                valid_scores = itm_probs[:, 1]
+                    input_ids = text.input_ids.expand(current_batch, -1)
+                    attention_mask = text.attention_mask.expand(current_batch, -1)
+                    
+                    output = self.model.text_encoder(
+                        input_ids,
+                        attention_mask=attention_mask,
+                        encoder_hidden_states=image_embeds,
+                        encoder_attention_mask=image_atts,
+                        return_dict=True,
+                    )
+                    
+                    itm_logits = self.model.itm_head(output.last_hidden_state[:, 0, :])
+                    scores_chunk = F.softmax(itm_logits, dim=1)[:, 1]
+                    all_scores.append(scores_chunk)
+                
+                scores = torch.cat(all_scores)
+ 
+            scores = scores * self.itm_score_scale
+            scores = torch.where(
+                valid_mask, scores, torch.tensor(INVALID_SCORE, device=self.device)
+            )
+ 
+        return scores.to(self.device_)
 
-                valid_idx = 0
-                for j, p in enumerate(batch_paths):
-                    if p not in self._invalid_paths and p in self._embeds_cache:
-                        batch_scores[j] = valid_scores[valid_idx]
-                        valid_idx += 1
-
-            all_scores.append(batch_scores.cpu())
-
-        return torch.cat(all_scores)
+    def score(self, query_text: Union[str, List[str]], image_refs: List) -> torch.Tensor:
+        """Backward-compatible alias for ITM scoring."""
+        return self.score_itm(query_text, image_refs)
 
 
-def build_blip_backbone(device: str, model_id: str = "Salesforce/blip-itm-large-coco"):
-    """Tiện ích dựng nhanh bộ 3: text_encoder, image_encoder, itm_scorer từ BLIP."""
-    model = BlipForRetrieval.from_pretrained(model_id).to(device)
-    processor = AutoProcessor.from_pretrained(model_id)
-    return (
-        BlipTextEncoder(model, processor, device),
-        BlipImageEncoder(model, processor, device),
-        BlipITMScorer(model, processor, device),
+def build_backbone(
+    device: str,
+    blip_repo_dir: str,
+    finetuned_ckpt_path: str,
+) -> Tuple:
+    """Build the BLIP backbone and wrap it for NACIR++."""
+    logger = logging.getLogger(__name__)
+
+    blip_subdir = os.path.join(blip_repo_dir, "BLIP")
+    for p in (blip_repo_dir, blip_subdir):
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+    blip_itm = import_module("BLIP.models.blip_itm").blip_itm
+
+    med_config_path = os.path.join(blip_repo_dir, "BLIP", "configs", "med_config.json")
+
+    logger.info("Loading BLIP-ITM checkpoint: %s", finetuned_ckpt_path)
+    model = blip_itm(
+        pretrained=finetuned_ckpt_path,
+        med_config=med_config_path,
+        image_size=IMAGE_SIZE,
+        vit="base",
     )
+
+    model = model.to(device).eval()
+
+    text_encoder = TextEncoder(model, device)
+    image_encoder = ImageEncoder(model, device)
+    itm_scorer = ITMScorer(model, device, image_encoder.transform)
+
+    return text_encoder, image_encoder, itm_scorer
+
+
+def build_blip_backbone(
+    device: str,
+    blip_repo_dir: str,
+    finetuned_ckpt_path: str,
+) -> Tuple:
+    """Backward-compatible alias for BLIP backbone construction."""
+    return build_backbone(device, blip_repo_dir, finetuned_ckpt_path)
