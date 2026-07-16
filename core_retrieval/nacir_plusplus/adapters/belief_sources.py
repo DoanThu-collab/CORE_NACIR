@@ -1,18 +1,19 @@
-"""
-NACIR++ Plug-and-Play — Belief Source Adapters
-==================================================
-Bọc lại 2 nguồn belief gốc (utils/negative_detector.py + core/semantic_parser.py)
-thành `BeliefSource` chuẩn hoá, KHÔNG đổi logic bên trong:
+"""NACIR++ plug-and-play belief source adapters.
 
-    1. PrecomputedBeliefSource — load JSON beliefs tính sẵn (Format A / B như
-       semantic_parser.load_precomputed_beliefs gốc).
-    2. RuleBasedBeliefSource   — dùng utils/negative_detector.py (3-stage cascade,
-       hiện Stage 1 rule-based) để tự suy ra positive/negative NGAY TỪ (question,
-       answer) — hữu ích khi phương pháp khác không có sẵn file beliefs.
+This module wraps the two original belief sources from `utils/negative_detector.py`
+and `core/semantic_parser.py` into a standardized `BeliefSource` interface
+without changing the internal logic.
 
-Bất kỳ phương pháp nào khác muốn cấp beliefs theo cách riêng (LLM, NLI, bộ
-NLU nội bộ...) chỉ cần viết một class có hàm `get_beliefs(...)` — không cần
-kế thừa gì cả (Protocol là structural typing).
+     1. PrecomputedBeliefSource loads precomputed JSON beliefs (Format A/B,
+         matching the original `semantic_parser.load_precomputed_beliefs`).
+     2. RuleBasedBeliefSource uses `utils/negative_detector.py` (the original
+         three-stage cascade, currently Stage 1 rule-based) to infer
+         positive/negative beliefs directly from `(question, answer)` pairs. This
+         is useful when another method does not provide a beliefs file.
+
+Any other method that wants to provide beliefs in its own way (LLM, NLI,
+internal NLU, etc.) only needs to implement a class with `get_beliefs(...)`.
+No inheritance is required because the protocol relies on structural typing.
 """
 
 import json
@@ -22,12 +23,12 @@ from typing import Any, Dict, List, Optional
 from ..schema import Belief, BeliefBundle
 
 # ============================================================
-# 1. Precomputed (giữ nguyên logic load_precomputed_beliefs gốc)
+# 1. Precomputed beliefs (preserves the original load_precomputed_beliefs logic)
 # ============================================================
 
 
 def load_precomputed_beliefs(path: str) -> Dict[int, Dict[int, Dict]]:
-    """Giữ nguyên 1:1 logic gốc core/semantic_parser.py::load_precomputed_beliefs."""
+    """Preserve the original 1:1 logic from `core/semantic_parser.py::load_precomputed_beliefs`."""
     with open(path) as f:
         raw = json.load(f)
 
@@ -60,12 +61,12 @@ def load_precomputed_beliefs(path: str) -> Dict[int, Dict[int, Dict]]:
 
 
 class PrecomputedBeliefSource:
-    """BeliefSource tra cứu từ dict {session_id: {turn_index: beliefs}} tính sẵn.
+    """Lookup belief bundles from a precomputed `{session_id: {turn_index: beliefs}}` dict.
 
-    `session_id` phải map trực tiếp sang key của dict (thường là index int
-    của dialog trong dataset gốc). Với turn=0 (chưa có Q&A trước đó), NACIR++
-    gốc luôn dùng beliefs của turn TRƯỚC ĐÓ (t-1) — hành vi này được giữ
-    nguyên qua tham số `turn_offset`.
+    `session_id` must map directly to a dictionary key, usually the integer
+    index of the dialog in the original dataset. For turn 0, the original
+    NACIR++ behavior is to use the beliefs from the previous turn (`t-1`); that
+    behavior is preserved through the `turn_offset` parameter.
     """
 
     def __init__(self, beliefs: Dict[int, Dict[int, Dict]], turn_offset: int = -1):
@@ -83,7 +84,7 @@ class PrecomputedBeliefSource:
 
 
 # ============================================================
-# 2. Rule-based online (giữ nguyên các pattern gốc utils/negative_detector.py)
+# 2. Rule-based online (preserves the original `utils/negative_detector.py` patterns)
 # ============================================================
 
 NEGATIVE_PATTERNS = [
@@ -107,9 +108,12 @@ def is_negative_rule_based(answer: str) -> bool:
 
 
 def _extract_attribute(question: str, answer: str) -> str:
-    """Trích thô 'attribute' từ câu hỏi (fallback đơn giản khi không có
-    DualExtractor NLP đầy đủ). Lấy phần danh từ cuối câu hỏi kiểu
-    "Is there a backpack?" -> "backpack"."""
+    """Heuristically extract an attribute from the question.
+
+    This is a simple fallback when a full NLP DualExtractor is not available.
+    It extracts the noun phrase at the end of questions such as
+    "Is there a backpack?" -> "backpack".
+    """
     q = question.lower().strip().rstrip("?")
     for prefix in ("is there a ", "is there an ", "is there ", "are there ",
                    "does it have a ", "does it have ", "do you see a ", "do you see "):
@@ -120,14 +124,16 @@ def _extract_attribute(question: str, answer: str) -> str:
 
 class RuleBasedBeliefSource:
     """
-    BeliefSource online dùng Stage-1 rule-based negation detection (y hệt
-    utils/negative_detector.py gốc) để tự gán positive/negative TỪ (question,
-    answer) mà không cần file beliefs tính sẵn hay LLM. Phù hợp cho việc
-    cắm NACIR++ vào một phương pháp/dataset hoàn toàn mới, miễn dữ liệu là
-    dạng hội thoại Q&A tiếng Anh.
+    Online belief source that uses Stage 1 rule-based negation detection
+    (matching the original `utils/negative_detector.py`) to assign positive or
+    negative beliefs directly from `(question, answer)` pairs without a
+    precomputed beliefs file or an LLM.
 
-    Với các phương pháp có bộ trích xuất concept tốt hơn (LLM, NLI...), hãy
-    thay bằng class riêng của bạn — chỉ cần cùng chữ ký `get_beliefs`.
+    This is suitable for plugging NACIR++ into a new method or dataset, as
+    long as the data is conversational English Q&A.
+
+    If your method has a better concept extractor (LLM, NLI, etc.), replace
+    this with your own class that exposes the same `get_beliefs` signature.
     """
 
     def __init__(self, default_confidence: float = 0.7):

@@ -1,13 +1,13 @@
-"""
-NACIR++ Plug-and-Play — VisDial/PlugIR Data Adapter
-=======================================================
-Bọc lại `Corpus` và `Queries` (torch Dataset) gốc trong main.py, KHÔNG đổi
-logic, chỉ tách nó ra khỏi orchestrator để có thể tái sử dụng riêng khi bạn
-build corpus_vectors / sessions cho Pipeline.
+"""NACIR++ plug-and-play VisDial/PlugIR data adapter.
 
-Đây là phần "đặc thù dataset" — mỗi phương pháp/dataset khác sẽ có adapter
-tương ứng của riêng nó (chỉ cần cuối cùng sinh ra corpus_vectors [N,D] và
-danh sách RetrievalSession theo schema.py).
+This module wraps the original `Corpus` and `Queries` torch datasets used in
+the main scripts without changing their logic. It simply separates the dataset
+specific code from the orchestrator so it can be reused when building
+corpus_vectors and RetrievalSession objects for the pipeline.
+
+This is the dataset-specific layer. Each method or dataset can provide its own
+adapter as long as it produces corpus_vectors [N, D] and a list of
+RetrievalSession objects that match schema.py.
 """
 
 import json
@@ -18,7 +18,7 @@ import torch
 
 
 class Corpus(torch.utils.data.Dataset):
-    """Giữ nguyên logic gốc: load danh sách path ảnh trong corpus JSON."""
+    """Load the list of image paths from the corpus JSON without changing logic."""
 
     def __init__(self, data_dir: str, corpus_path: str, preprocessor: Callable):
         with open(corpus_path) as f:
@@ -37,7 +37,7 @@ class Corpus(torch.utils.data.Dataset):
 
 
 class Queries(torch.utils.data.Dataset):
-    """Giữ nguyên logic gốc: đọc dialog theo từng round (dialog_length)."""
+    """Read dialog entries by round (`dialog_length`) without changing logic."""
 
     def __init__(self, queries_path: str, data_dir: str, sep_token: str = ", ", split: bool = True):
         with open(queries_path) as f:
