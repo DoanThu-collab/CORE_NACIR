@@ -1,31 +1,13 @@
 """
-NACIR++ — Step 2: Concept Memory Board (Bảng Nhớ Khái Niệm)
+NACIR++ — Step 2: Concept Memory Board (Phiên bản cải tiến)
 ==============================================================
-Tiến hóa từ M4 (query_update.py): Rocchio kéo-đẩy cộng dồn mờ nhạt.
+Thêm 2 method mới phục vụ cho cơ chế Memory Roll-back:
+  - save_state():    Lưu toàn bộ trạng thái memory vào một dict
+  - restore_state(): Khôi phục memory từ dict đã lưu
 
-NACIR++ xây hẳn Bảng Nhớ Khái Niệm (Concept Memory Board) để:
-1. Lưu trữ TOÀN BỘ concepts đã gặp (positive + negative)
-2. Auto-Override: Nếu concept bị phản bác → tự động ghi đè polarity
-3. Tổng hợp query từ bảng nhớ thay vì Rocchio cộng dồn
+Phần còn lại giữ nguyên 100% logic gốc.
 
-So sánh:
-    Cũ (Rocchio):  q_{t+1} = q_t + α·mean(E_pos) − β·mean(E_neg)
-                   → mờ nhạt dần, quên nhanh, xung đột tích lũy
-    
-    Mới (Memory):  q_{t+1} = Normalize(q_t + α·Σ(w_c·v_c for c in Pos) 
-                                            − β·Σ(w_c·v_c for c in Neg))
-                   → tường minh, auto-override, không quên
-
-Concept Memory Entry:
-    {
-        "name":         str,        # "black backpack"
-        "polarity":     str,        # "positive" | "negative"
-        "vector":       Tensor[D],  # encoded embedding
-        "confidence":   float,      # 0.0-1.0
-        "turn_created": int,        # first seen
-        "turn_updated": int,        # last modified
-        "override_count": int,      # number of polarity flips
-    }
+File này THAY THẾ hoàn toàn nacir/core/concept_memory.py khi bạn sẵn sàng.
 """
 
 import torch
@@ -75,10 +57,12 @@ class ConceptMemoryConfig:
 
 class ConceptMemoryBoard:
     """
-    NACIR++ Step 2 — Bảng Nhớ Khái Niệm
+    NACIR++ Step 2 — Bảng Nhớ Khái Niệm (Phiên bản cải tiến)
 
     Quản lý toàn bộ concepts đã gặp trong cuộc hội thoại.
     Tự động phát hiện xung đột và ghi đè (auto-override).
+
+    ĐỀ XUẤT MỚI: Hỗ trợ Save/Restore State cho Memory Roll-back.
 
     Ví dụ workflow:
         Turn 1: User nói "yes, has a backpack"
@@ -86,6 +70,7 @@ class ConceptMemoryBoard:
         Turn 3: User nói "no, not a black backpack"
                  → Memory: {"backpack": polarity=NEGATIVE}  (auto-overridden!)
                  → confidence TĂNG (vì user đã phản bác lại)
+        Turn 4: Rollback detected! LLM hallucinated → restore memory to Turn 3
     """
 
     def __init__(
@@ -114,6 +99,47 @@ class ConceptMemoryBoard:
         self.memory.clear()
         self.current_turn = 0
         self.override_log.clear()
+
+    # ══════════════════════════════════════════════
+    # ĐỀ XUẤT MỚI: Save/Restore State (Roll-back)
+    # ══════════════════════════════════════════════
+
+    def save_state(self) -> Dict[str, Any]:
+        """
+        Lưu toàn bộ trạng thái bảng nhớ hiện tại vào một dict.
+        Dùng deep copy để đảm bảo snapshot không bị ảnh hưởng
+        bởi các thao tác sau này.
+
+        Returns:
+            Dict chứa toàn bộ trạng thái cần thiết để khôi phục.
+        """
+        return {
+            "memory": copy.deepcopy(self.memory),
+            "current_turn": self.current_turn,
+            "override_log": copy.deepcopy(self.override_log),
+            "config": copy.deepcopy(self.config),
+        }
+
+    def restore_state(self, state: Dict[str, Any]):
+        """
+        Khôi phục bảng nhớ từ một snapshot đã lưu trước đó.
+        Toàn bộ trạng thái hiện tại sẽ bị ghi đè.
+
+        Args:
+            state: Dict trả về từ save_state()
+        """
+        self.memory = copy.deepcopy(state["memory"])
+        self.current_turn = state["current_turn"]
+        self.override_log = copy.deepcopy(state["override_log"])
+        self.config = copy.deepcopy(state["config"])
+        logger.debug(
+            f"Memory restored to turn {self.current_turn} "
+            f"with {len(self.memory)} concepts"
+        )
+
+    # ══════════════════════════════════════════════
+    # Logic gốc (giữ nguyên 100%)
+    # ══════════════════════════════════════════════
 
     def _encode_concept(self, name: str) -> torch.Tensor:
         """Encode concept name → L2-normalized embedding vector."""
