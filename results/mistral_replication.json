@@ -1,0 +1,30 @@
+{
+  "status": "verified_completed_runs_pending_paired_statistics_archive",
+  "protocol": "H0/H1/F1, 2064 aligned sessions, Recall@10 and BRI",
+  "runs": {
+    "H0": {
+      "bri": 0.767361819744,
+      "final_hits_at_10_percent": 91.47287,
+      "final_recall_at_10_percent": 74.32171
+    },
+    "H1": {
+      "bri": 0.71417248249,
+      "final_hits_at_10_percent": 92.97481,
+      "final_recall_at_10_percent": 77.81008
+    },
+    "F1": {
+      "bri": 0.713943660259,
+      "final_hits_at_10_percent": 93.02326,
+      "final_recall_at_10_percent": 78.82751
+    }
+  },
+  "descriptive_f1_minus_h1": {
+    "bri": -0.000228822231,
+    "final_hits_at_10_percent": 0.04845,
+    "final_recall_at_10_percent": 1.01743
+  },
+  "notes": [
+    "Do not attach confidence intervals or p-values until compare_runs.py has been executed on the original aligned ranks.",
+    "Aggregate values were transcribed from completed reports."
+  ]
+}

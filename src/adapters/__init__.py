@@ -1,1 +1,0 @@
-"""Novelty adapters for NACIR++."""

@@ -1,42 +1,14 @@
-"""
-NACIR++ Plug-and-Play
-========================
-Xem README.md ở thư mục gốc để biết hợp đồng Input/Output thống nhất.
+"""NACIR paper-release implementation."""
 
-Import nhanh:
-    from nacir_plusplus import NACIRPlusPlusPipeline, NACIRPlusPlusConfig
-    from nacir_plusplus.schema import RetrievalSession, DialogTurn, BeliefBundle, Belief
-    from nacir_plusplus.interfaces import TextEncoder, BeliefSource, ImageScorer
-"""
-
-from .config import (
-    DynamicScheduleConfig,
-    NACIRPlusPlusConfig,
-    OPTIMAL_CONFIG,
-    OPTIMAL_SCHEDULE,
-    default_dynamic_schedule,
-)
-from .pipeline import NACIRPlusPlusPipeline
-from .schema import (
-    Belief,
-    BeliefBundle,
-    DialogTurn,
-    RetrievalSession,
-    SessionOutput,
-    TurnOutput,
-)
+from .config import F1Config
+from .pipeline import F1Pipeline
+from .schema import Belief, BeliefBundle, DialogTurn, RetrievalSession
 
 __all__ = [
-    "NACIRPlusPlusPipeline",
-    "NACIRPlusPlusConfig",
-    "DynamicScheduleConfig",
-    "OPTIMAL_CONFIG",
-    "OPTIMAL_SCHEDULE",
-    "default_dynamic_schedule",
     "Belief",
     "BeliefBundle",
     "DialogTurn",
+    "F1Config",
+    "F1Pipeline",
     "RetrievalSession",
-    "SessionOutput",
-    "TurnOutput",
 ]

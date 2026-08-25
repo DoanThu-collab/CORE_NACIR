@@ -1,184 +1,163 @@
-"""
-NACIR++ Improved — Config (Phiên bản V2)
-==========================================
-Cấu hình hợp nhất cho toàn bộ pipeline NACIR++ gồm:
-  - Core: Concept Memory, Orthogonal Projection, Masking, Reranking
-  - Đề xuất cũ: Semantic-Aware Scheduling, Memory Roll-back
-  - ĐỀ XUẤT MỚI 1: Dynamic Concept Graph (DCG)
-  - ĐỀ XUẤT MỚI 2: Visual-Grounded Belief Refinement
+"""Configuration for the paper's F1 dual-route trust-fusion method.
+
+This module intentionally exposes only the components evaluated in the paper:
+signed memory, the H1 anchor, asymmetric proposal/constraint routing, and fusion.
 """
 
-from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from __future__ import annotations
+
+import math
+import json
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from pathlib import Path
+from typing import Any, TypeVar
+
+T = TypeVar("T")
+
+
+def _build_dataclass(cls: type[T], values: dict[str, Any]) -> T:
+    if not is_dataclass(cls):
+        raise TypeError("cls must be a dataclass type")
+    kwargs: dict[str, Any] = {}
+    for item in fields(cls):
+        if item.name not in values:
+            continue
+        current = getattr(cls(), item.name)
+        raw_value = values[item.name]
+        if is_dataclass(current) and isinstance(raw_value, dict):
+            kwargs[item.name] = _build_dataclass(type(current), raw_value)
+        else:
+            kwargs[item.name] = raw_value
+    return cls(**kwargs)
+
+
+def _finite(name: str, *values: float) -> None:
+    if not all(math.isfinite(float(value)) for value in values):
+        raise ValueError(f"{name} values must be finite")
 
 
 @dataclass
-class NACIRPlusPlusConfig:
-    """
-    Cấu hình hợp nhất cho toàn bộ các bước của NACIR++.
-
-    Ablation modes:
-        "full"       — bật tất cả các bước
-        "no_ortho"   — tắt Step 3 (Orthogonal Projection)
-        "no_mask"    — tắt Step 4 (Attention Masking)
-        "no_memory"  — tắt Step 2 (Concept Memory), dùng thẳng query gốc
-    """
-    # Step 2: Concept Memory
-    memory_alpha: float = 0.30
-    memory_beta: float = 0.15
+class MemoryConfig:
+    positive_weight: float = 0.55
+    negative_weight: float = 0.275
     recency_decay: float = 0.1
-    concept_match_threshold: float = 0.85
+    semantic_merge: bool = False
+    semantic_merge_threshold: float = 0.92
+    override_boost: float = 0.15
+    retain_history: bool = True
     max_concepts: int = 50
 
-    # Step 3: Orthogonal Projection
-    positive_blend_alpha: float = 0.30
-    ortho_strength: float = 1.0
-    use_gram_schmidt: bool = True
-
-    # Step 4: Masking / Penalty
-    masking_penalty_weight: float = 0.15
-    masking_threshold: float = 0.20
-
-    # Ablation mode
-    mode: str = "full"
-
-    # ── Semantic-Aware Scheduling ──
-    use_semantic_scheduler: bool = False
-
-    # ── Memory Roll-back ──
-    use_memory_rollback: bool = False
-    rollback_score_drop: float = 0.05
-    rollback_top_k: int = 50
-
-    # ══════════════════════════════════════════════════
-    # ĐỀ XUẤT MỚI 1: Dynamic Concept Graph (DCG)
-    # ══════════════════════════════════════════════════
-    use_concept_graph: bool = False
-    graph_propagation_alpha: float = 0.3     # Cường độ lan truyền (0=tắt, 1=chỉ neighbor)
-    graph_similarity_threshold: float = 0.50  # Cosine sim tối thiểu để tạo cạnh
-    graph_num_hops: int = 1                   # Số bước lan truyền
-    graph_evolving: bool = False              # Turn-Evolving Graph (temporal smoothing)
-    graph_temporal_gamma: float = 0.3         # Tỷ lệ pha trộn đồ thị mới vào cũ
-    graph_bimodal: bool = False               # Bimodal Concept Node (visual grounding)
-    graph_bimodal_lambda: float = 0.2         # Tỷ lệ pha trộn visual vào text
-    graph_bimodal_top_k: int = 10             # Số ảnh top-K để visual grounding
-
-    # ══════════════════════════════════════════════════
-    # ĐỀ XUẤT MỚI 2: Visual-Grounded Belief Refinement
-    # ══════════════════════════════════════════════════
-    use_visual_feedback: bool = False
-    vf_top_k: int = 50                        # Số ảnh top-K để phân tích
-    vf_suppress_threshold: float = 0.15       # Positive relevance < τ → suppress
-    vf_boost_threshold: float = 0.25          # Negative relevance > τ → boost
-    vf_suppress_factor: float = 0.3           # Mức giảm confidence khi suppress
-    vf_boost_factor: float = 0.2              # Mức tăng confidence khi boost
-
-    def __repr__(self):
-        return (
-            f"NACIRPlusPlusConfig(mode={self.mode}, "
-            f"α_mem={self.memory_alpha}, β_mem={self.memory_beta}, "
-            f"ortho_str={self.ortho_strength}, "
-            f"mask_w={self.masking_penalty_weight}, "
-            f"DCG={self.use_concept_graph}, "
-            f"VisualFB={self.use_visual_feedback})"
+    def validate(self) -> None:
+        _finite(
+            "memory",
+            self.positive_weight,
+            self.negative_weight,
+            self.recency_decay,
+            self.semantic_merge_threshold,
+            self.override_boost,
         )
+        if self.positive_weight < 0 or self.negative_weight < 0:
+            raise ValueError("memory weights must be non-negative")
+        if self.recency_decay < 0:
+            raise ValueError("recency_decay must be non-negative")
+        if not 0 <= self.semantic_merge_threshold <= 1:
+            raise ValueError("semantic_merge_threshold must be in [0, 1]")
+        if not 0 <= self.override_boost <= 1:
+            raise ValueError("override_boost must be in [0, 1]")
+        if self.max_concepts < 1:
+            raise ValueError("max_concepts must be positive")
+        if not self.retain_history:
+            raise ValueError("the paper method requires persistent memory")
 
 
 @dataclass
-class DynamicScheduleConfig:
-    """
-    Tham số hóa lịch trình động.
-    Công thức giữ nguyên 100% logic gốc trong main.py.
-    """
+class ProjectionConfig:
     enabled: bool = True
+    strength: float = 0.2
 
-    alpha_start: float = 0.20
-    alpha_end: float = 0.60
-    beta_ratio: float = 0.5
-    ortho_start: float = 0.05
-    ortho_end: float = 0.25
-    penalty_start: float = 0.05
-    penalty_end: float = 0.20
-    warmup_turns: float = 9.0
-
-    itm_start: float = 0.2
-    itm_end: float = 0.7
-    itm_warmup_turns: float = 10.0
+    def validate(self) -> None:
+        _finite("projection", self.strength)
+        if not self.enabled or not 0 <= self.strength <= 1:
+            raise ValueError("F1 requires enabled projection with strength in [0, 1]")
 
 
-def default_dynamic_schedule(
-    turn: int, schedule: DynamicScheduleConfig
-) -> Dict[str, float]:
-    """
-    Trả về override cho turn hiện tại.
-    Công thức giữ nguyên 100% logic gốc trong main.py.
-    """
-    progress_itm = min(turn / schedule.itm_warmup_turns, 1.0)
-    itm_weight = schedule.itm_start + (schedule.itm_end - schedule.itm_start) * progress_itm
+@dataclass
+class MaskingConfig:
+    enabled: bool = True
+    threshold: float = 0.25
+    max_penalty: float = 0.18
+    temperature: float = 0.1
 
-    overrides: Dict[str, float] = {"itm_weight": itm_weight}
+    def validate(self) -> None:
+        _finite("masking", self.threshold, self.max_penalty, self.temperature)
+        if not self.enabled:
+            raise ValueError("F1 requires enabled negative masking")
+        if not -1 <= self.threshold <= 1:
+            raise ValueError("masking threshold must be in [-1, 1]")
+        if not 0 <= self.max_penalty <= 1 or self.temperature <= 0:
+            raise ValueError("masking penalty or temperature is invalid")
 
-    if turn > 0:
-        progress = min((turn - 1) / schedule.warmup_turns, 1.0)
-        alpha = schedule.alpha_start + (schedule.alpha_end - schedule.alpha_start) * progress
-        beta = alpha * schedule.beta_ratio
-        ortho = schedule.ortho_start + (schedule.ortho_end - schedule.ortho_start) * progress
-        penalty = schedule.penalty_start + (schedule.penalty_end - schedule.penalty_start) * progress
 
-        overrides.update(
-            {
-                "memory_alpha": alpha,
-                "memory_beta": beta,
-                "ortho_strength": ortho,
-                "masking_penalty_weight": penalty,
-            }
+@dataclass
+class AsymmetricConstraintConfig:
+    mode: str = "dual_route_trust"
+    candidate_k: int = 500
+    negative_strength: float = 0.275
+    posterior_temperature: float = 0.05
+    min_spread: float = 0.01
+    max_kl: float = 0.002
+    eps: float = 1e-6
+
+    def validate(self) -> None:
+        if self.mode != "dual_route_trust":
+            raise ValueError("the paper release supports only dual_route_trust")
+        if self.candidate_k < 2:
+            raise ValueError("candidate_k must be at least 2")
+        _finite(
+            "asymmetric constraint",
+            self.negative_strength,
+            self.posterior_temperature,
+            self.min_spread,
+            self.max_kl,
+            self.eps,
         )
-
-    return overrides
-
-
-def semantic_aware_schedule(
-    turn: int,
-    schedule: DynamicScheduleConfig,
-    beliefs=None,
-) -> Dict[str, float]:
-    """Semantic-Aware Schedule: scale theo confidence từ beliefs."""
-    overrides = default_dynamic_schedule(turn, schedule)
-
-    if beliefs is None or turn == 0:
-        return overrides
-
-    all_confidences = []
-    for b in beliefs.positive_beliefs:
-        all_confidences.append(b.confidence)
-    for b in beliefs.negative_beliefs:
-        all_confidences.append(b.confidence)
-
-    if not all_confidences:
-        return overrides
-
-    max_conf = max(all_confidences)
-    for key in ("memory_alpha", "memory_beta", "ortho_strength", "masking_penalty_weight"):
-        if key in overrides:
-            overrides[key] *= max_conf
-
-    return overrides
+        if self.negative_strength < 0 or self.posterior_temperature <= 0:
+            raise ValueError("constraint strength or temperature is invalid")
+        if self.min_spread <= 0 or self.max_kl <= 0 or self.eps <= 0:
+            raise ValueError("spread, KL budget, and epsilon must be positive")
 
 
-ScheduleFn = Callable[[int], Dict[str, float]]
+@dataclass
+class F1Config:
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
+    projection: ProjectionConfig = field(default_factory=ProjectionConfig)
+    masking: MaskingConfig = field(default_factory=MaskingConfig)
+    asymmetric_constraint: AsymmetricConstraintConfig = field(
+        default_factory=AsymmetricConstraintConfig
+    )
+    top_k: int = 10
 
+    def validate(self) -> None:
+        self.memory.validate()
+        self.projection.validate()
+        self.masking.validate()
+        self.asymmetric_constraint.validate()
+        if self.top_k < 1:
+            raise ValueError("top_k must be positive")
 
-# Tham số tối ưu gốc
-OPTIMAL_CONFIG = NACIRPlusPlusConfig(
-    memory_alpha=0.55,
-    memory_beta=0.275,
-    positive_blend_alpha=0.55,
-    ortho_strength=0.2,
-    masking_penalty_weight=0.18,
-    masking_threshold=0.25,
-    recency_decay=0.1,
-    concept_match_threshold=0.75,
-    mode="full",
-)
+    @classmethod
+    def from_dict(cls, values: dict[str, Any]) -> "F1Config":
+        config = _build_dataclass(cls, values)
+        config.validate()
+        return config
 
-OPTIMAL_SCHEDULE = DynamicScheduleConfig()
+    @classmethod
+    def from_path(cls, path: str | Path) -> "F1Config":
+        with Path(path).open(encoding="utf-8") as handle:
+            values = json.load(handle)
+        if not isinstance(values, dict):
+            raise ValueError("configuration file must contain a JSON object")
+        return cls.from_dict(values)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

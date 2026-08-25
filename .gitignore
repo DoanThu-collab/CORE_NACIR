@@ -1,49 +1,20 @@
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
 
-# Logs
-logs/
-*.log
-
-# Data, model, and experiment artifacts
+# Experiment inputs, model weights, and generated run artifacts are not tracked.
 data/
-datasets/
-checkpoints/
-outputs/
-results/
+artifacts/
 runs/
-wandb/
-*.ckpt
+outputs/
 *.pt
 *.pth
+*.npz
 *.safetensors
-
-# Caches
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDEs
-.idea/
-.vscode/
-*.swp
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+*.jsonl

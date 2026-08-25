@@ -1,124 +1,168 @@
-"""
-NACIR++ Plug-and-Play — Unified I/O Schema
-============================================
-Đây là "hợp đồng" (contract) chung mà BẤT KỲ phương pháp tìm kiếm ảnh tương tác
-đa vòng nào (PlugIR, ChatIR, hay phương pháp tự viết) cũng phải tuân theo để
-cắm được vào NACIR++.
+"""Typed data contracts shared by training, inference, and evaluation."""
 
-Nguyên tắc: NACIR++ không quan tâm phương pháp nền (base method) sinh ra câu
-query bằng cách nào (LLM rewrite, template, rule-based...). Nó chỉ cần:
-    1. Một vector query cho mỗi turn (đã được base method mã hoá) — INPUT
-    2. (tuỳ chọn) beliefs positive/negative cho turn đó — INPUT
-    3. Corpus vectors để tính điểm — INPUT (context, không đổi theo turn)
-    và trả về:
-    4. Vector query đã "phẫu thuật" (updated) — OUTPUT
-    5. Điểm số / ranking đã điều chỉnh — OUTPUT
-
-=> Bất kỳ backbone/method nào (BLIP, CLIP, SigLIP, hay retrieval model riêng
-   của bạn) chỉ cần đóng gói dữ liệu đúng theo các dataclass dưới đây.
-"""
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+import math
+from typing import Any, Dict, List, Mapping, Optional
 
 import torch
 
 
-# ============================================================
-# Beliefs (Step 1 output — do phương pháp bên ngoài / extractor cung cấp)
-# ============================================================
-
-@dataclass
+@dataclass(frozen=True)
 class Belief:
-    """Một khái niệm (concept) được trích xuất từ câu trả lời hội thoại."""
     attribute: str
     confidence: float = 0.7
+    fact_type: str = "unknown"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.attribute, str):
+            raise ValueError("Belief.attribute must be a string")
+        attribute = self.attribute.strip()
+        if not attribute:
+            raise ValueError("Belief.attribute must be non-empty")
+        if (
+            isinstance(self.confidence, bool)
+            or not isinstance(self.confidence, (int, float))
+            or not math.isfinite(float(self.confidence))
+            or not 0.0 <= float(self.confidence) <= 1.0
+        ):
+            raise ValueError("Belief.confidence must be finite and in [0, 1]")
+        if not isinstance(self.fact_type, str) or not self.fact_type.strip():
+            raise ValueError("Belief.fact_type must be a non-empty string")
+        if not isinstance(self.metadata, Mapping):
+            raise ValueError("Belief.metadata must be a mapping")
+        object.__setattr__(self, "attribute", attribute)
+        object.__setattr__(self, "confidence", float(self.confidence))
 
 
-@dataclass
+@dataclass(frozen=True)
 class BeliefBundle:
-    """Gói belief cho MỘT turn của MỘT session."""
-    positive_beliefs: List[Belief] = field(default_factory=list)
-    negative_beliefs: List[Belief] = field(default_factory=list)
-
-    @staticmethod
-    def empty() -> "BeliefBundle":
-        return BeliefBundle()
-
-    @staticmethod
-    def from_raw(raw: Dict[str, List[Dict[str, Any]]]) -> "BeliefBundle":
-        """Dựng từ dict thô kiểu {"positive_beliefs":[{"attribute":..,"confidence":..}], ...}."""
-        pos = [
-            Belief(attribute=b.get("attribute", ""), confidence=b.get("confidence", 0.7))
-            for b in raw.get("positive_beliefs", [])
-            if b.get("attribute")
-        ]
-        neg = [
-            Belief(attribute=b.get("attribute", ""), confidence=b.get("confidence", 0.7))
-            for b in raw.get("negative_beliefs", [])
-            if b.get("attribute")
-        ]
-        return BeliefBundle(positive_beliefs=pos, negative_beliefs=neg)
-
-
-# ============================================================
-# INPUT — một turn hội thoại / một phiên hội thoại
-# ============================================================
-
-@dataclass
-class DialogTurn:
-    """
-    Một vòng hội thoại (turn) đã được BASE METHOD xử lý sẵn.
-
-    query_text:
-        Câu query mà base method (PlugIR/ChatIR/...) muốn dùng để retrieve
-        ở turn này (có thể là cả lịch sử hội thoại ghép lại, hoặc câu do LLM
-        viết lại — NACIR++ không quan tâm cách sinh ra, chỉ cần chuỗi text).
-    query_vector:
-        (tuỳ chọn) nếu base method đã tự encode sẵn thì truyền thẳng vector,
-        Pipeline sẽ bỏ qua bước gọi text_encoder.
-    question / answer:
-        Dùng để trích beliefs nếu bạn dùng BeliefSource dạng "online extractor".
-    beliefs:
-        (tuỳ chọn) nếu base method / pipeline khác đã có sẵn beliefs
-        (positive/negative concept) thì truyền thẳng vào đây, Pipeline sẽ bỏ
-        qua BeliefSource.
-    """
-    turn_index: int
-    query_text: str = ""
-    query_vector: Optional[torch.Tensor] = None
+    positive: List[Belief] = field(default_factory=list)
+    negative: List[Belief] = field(default_factory=list)
+    source_turn: Optional[int] = None
     question: str = ""
     answer: str = ""
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.positive, list)
+            or not isinstance(self.negative, list)
+            or any(not isinstance(item, Belief) for item in self.positive + self.negative)
+        ):
+            raise ValueError("BeliefBundle polarities must be lists of Belief")
+        if (
+            self.source_turn is not None
+            and (
+                isinstance(self.source_turn, bool)
+                or not isinstance(self.source_turn, int)
+                or self.source_turn < 0
+            )
+        ):
+            raise ValueError("BeliefBundle.source_turn must be a non-negative integer")
+        if not isinstance(self.question, str) or not isinstance(self.answer, str):
+            raise ValueError("BeliefBundle question/answer must be strings")
+        if not isinstance(self.metadata, Mapping):
+            raise ValueError("BeliefBundle.metadata must be a mapping")
+
+    @classmethod
+    def empty(cls) -> "BeliefBundle":
+        return cls()
+
+    @property
+    def total(self) -> int:
+        return len(self.positive) + len(self.negative)
+
+    @property
+    def negative_fraction(self) -> float:
+        return len(self.negative) / self.total if self.total else 0.0
+
+
+@dataclass(frozen=True)
+class DialogTurn:
+    turn_index: int
+    query_text: str
+    query_vector: Optional[torch.Tensor] = None
     beliefs: Optional[BeliefBundle] = None
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.turn_index, bool)
+            or not isinstance(self.turn_index, int)
+            or self.turn_index < 0
+        ):
+            raise ValueError("turn_index must be a non-negative integer")
+        if not isinstance(self.query_text, str):
+            raise ValueError("query_text must be a string")
+        if self.query_vector is not None and not isinstance(self.query_vector, torch.Tensor):
+            raise ValueError("query_vector must be a tensor")
+        if self.beliefs is not None and not isinstance(self.beliefs, BeliefBundle):
+            raise ValueError("beliefs must be a BeliefBundle")
+        if self.query_vector is None and not self.query_text.strip():
+            raise ValueError("A turn needs query_text or query_vector")
+        if self.query_vector is not None and self.query_vector.ndim != 1:
+            raise ValueError("query_vector must have shape [D]")
+        if self.query_vector is not None and (
+            not torch.isfinite(self.query_vector).all() or float(self.query_vector.norm()) <= 1e-8
+        ):
+            raise ValueError("query_vector must be finite and non-zero")
 
-@dataclass
+
+@dataclass(frozen=True)
 class RetrievalSession:
-    """Một phiên hội thoại tìm kiếm ảnh tương tác đầy đủ (nhiều turn)."""
     session_id: Any
     turns: List[DialogTurn]
-    target_index: Optional[int] = None  # index ảnh đích trong corpus (để tính metric); None nếu chỉ inference
+    target_index: Optional[int] = None
 
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.turns, list)
+            or any(not isinstance(turn, DialogTurn) for turn in self.turns)
+        ):
+            raise ValueError("RetrievalSession.turns must be a list of DialogTurn")
+        if (
+            self.target_index is not None
+            and (
+                isinstance(self.target_index, bool)
+                or not isinstance(self.target_index, int)
+            )
+        ):
+            raise ValueError("target_index must be a non-negative integer")
+        indices = [turn.turn_index for turn in self.turns]
+        if not indices:
+            raise ValueError("RetrievalSession must contain at least one turn")
+        if sorted(indices) != list(range(len(indices))):
+            raise ValueError("turn_index values must be contiguous and start at zero")
+        if self.target_index is not None and self.target_index < 0:
+            raise ValueError("target_index must be non-negative")
 
-# ============================================================
-# OUTPUT — kết quả mỗi turn / mỗi session
-# ============================================================
 
 @dataclass
-class TurnOutput:
+class TurnTrace:
     turn_index: int
-    query_vector: torch.Tensor            # [D] — query vector đã update (Step 2+3)
-    scores: torch.Tensor                  # [N] — điểm số cuối cùng (sau Step 4 + rerank nếu có)
-    ranked_indices: torch.Tensor          # [N] — index corpus xếp hạng giảm dần theo scores
-    top_k_indices: List[int]              # top-K sau cùng (có thể đã qua re-rank)
-    target_rank: Optional[int] = None     # thứ hạng của ảnh đích (None nếu không có target)
-    memory_snapshot: Optional[List[Dict]] = None  # (debug) trạng thái Concept Memory Board
+    accepted: bool
+    decision_mode: str
+    features: Dict[str, float] = field(default_factory=dict)
+    reject_rank: Optional[int] = None
+    accept_rank: Optional[int] = None
+    final_rank: Optional[int] = None
+    top_k_indices: List[int] = field(default_factory=list)
+    diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def oracle_delta_rank(self) -> Optional[int]:
+        if self.reject_rank is None or self.accept_rank is None:
+            return None
+        return self.reject_rank - self.accept_rank
 
 
 @dataclass
 class SessionOutput:
     session_id: Any
-    turns: List[TurnOutput]
+    turns: List[TurnTrace]
 
     def target_ranks(self) -> List[Optional[int]]:
-        return [t.target_rank for t in self.turns]
+        return [turn.final_rank for turn in self.turns]
+

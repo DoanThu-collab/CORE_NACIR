@@ -1,0 +1,6 @@
+{
+  "corpus_vectors": "/absolute/path/to/corpus_vectors.pt",
+  "sessions": "/absolute/path/to/sessions.pt",
+  "beliefs": "/absolute/path/to/beliefs_complete.json",
+  "output": "outputs/f1"
+}
