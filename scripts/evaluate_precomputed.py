@@ -11,6 +11,7 @@ human-readable trace output. Corpus vectors are a tensor or a dictionary with a
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
@@ -19,10 +20,10 @@ import numpy as np
 import torch
 
 from nacir.beliefs import BeliefStore
-from nacir.config import F1Config
+from nacir.config import NACIRMinusConfig
 from nacir.evaluation import evaluate_session, rank_matrix
 from nacir.metrics import compute_metrics
-from nacir.pipeline import F1Pipeline
+from nacir.pipeline import NACIRMinusPipeline
 from nacir.schema import DialogTurn, RetrievalSession
 
 
@@ -86,7 +87,7 @@ def _json_safe(value: Any) -> Any:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["h0", "h1", "f1"], required=True)
+    parser.add_argument("--mode", choices=["h0", "nacir"], required=True)
     parser.add_argument("--corpus-vectors", type=Path, required=True)
     parser.add_argument("--sessions", type=Path, required=True)
     parser.add_argument("--beliefs", type=Path)
@@ -99,7 +100,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode != "h0" and args.beliefs is None:
-        raise ValueError("H1 and F1 require --beliefs")
+        raise ValueError("NACIR mode requires --beliefs")
     store = BeliefStore.from_path(args.beliefs) if args.beliefs else None
     if args.mode != "h0":
         import importlib
@@ -108,8 +109,8 @@ def main() -> None:
         encoder = adapter_func(args.device, allow_download=args.allow_download)
     else:
         encoder = _UnusedEncoder()
-    config = F1Config.from_path(args.config)
-    pipeline = F1Pipeline(
+    config = NACIRMinusConfig()
+    pipeline = NACIRMinusPipeline(
         config=config,
         corpus_vectors=_load_vectors(args.corpus_vectors),
         text_encoder=encoder,
@@ -128,7 +129,7 @@ def main() -> None:
                     "run_name": args.mode.upper(),
                     "method": "raw_query" if args.mode == "h0" else args.mode,
                     "metrics": metrics,
-                    "method_config": config.to_dict(),
+                    "method_config": dataclasses.asdict(config),
                     "config_path": str(args.config),
                     "beliefs": str(args.beliefs) if args.beliefs else None,
                     "num_sessions": len(outputs),

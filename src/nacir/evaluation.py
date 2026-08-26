@@ -7,24 +7,22 @@ from typing import Literal
 import torch
 
 from .core.memory import ConceptMemory
-from .pipeline import F1Pipeline
+from .pipeline import NACIRMinusPipeline
 from .schema import RetrievalSession, SessionOutput, TurnTrace
 
-
-RunMode = Literal["h0", "h1", "f1"]
+RunMode = Literal["h0", "nacir"]
 
 
 @torch.inference_mode()
-def evaluate_session(pipeline: F1Pipeline, session: RetrievalSession, mode: RunMode) -> SessionOutput:
-    """Evaluate one session with one of the three paper runs.
+def evaluate_session(pipeline: NACIRMinusPipeline, session: RetrievalSession, mode: RunMode) -> SessionOutput:
+    """Evaluate one session with either H0 baseline or the NACIR- method.
 
-    The only distinction among H0, H1, and F1 is the documented scoring branch.
     Ground-truth target indices are read after scores are formed solely to report
     ranks; they never affect the pipeline state.
     """
 
-    if mode not in {"h0", "h1", "f1"}:
-        raise ValueError("mode must be h0, h1, or f1")
+    if mode not in {"h0", "nacir"}:
+        raise ValueError("mode must be h0 or nacir")
     memory = ConceptMemory(pipeline.config.memory, pipeline.text_encoder)
     traces: list[TurnTrace] = []
     for turn in sorted(session.turns, key=lambda item: item.turn_index):
@@ -39,8 +37,6 @@ def evaluate_session(pipeline: F1Pipeline, session: RetrievalSession, mode: RunM
         base_query = pipeline._query(turn.query_vector)
         if mode == "h0":
             scores, diagnostics = base_query @ pipeline.corpus_vectors.T, {}
-        elif mode == "h1":
-            scores, diagnostics = pipeline._anchor_scores(base_query, memory)
         else:
             scores, diagnostics = pipeline.score(turn.query_vector, memory)
         order = torch.argsort(scores, descending=True, stable=True)

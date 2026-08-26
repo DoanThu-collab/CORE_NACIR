@@ -1,0 +1,32 @@
+{
+  "memory": {
+    "positive_weight": 0.0,
+    "negative_weight": 0.275,
+    "recency_decay": 0.1,
+    "semantic_merge": false,
+    "semantic_merge_threshold": 0.92,
+    "override_boost": 0.15,
+    "retain_history": true,
+    "max_concepts": 50
+  },
+  "projection": {
+    "enabled": true,
+    "strength": 0.2
+  },
+  "masking": {
+    "enabled": true,
+    "threshold": 0.25,
+    "max_penalty": 0.18,
+    "temperature": 0.1
+  },
+  "asymmetric_constraint": {
+    "mode": "dual_route_trust",
+    "candidate_k": 500,
+    "negative_strength": 0.275,
+    "posterior_temperature": 0.05,
+    "min_spread": 0.01,
+    "max_kl": 0.002,
+    "eps": 1e-06
+  },
+  "top_k": 10
+}
