@@ -33,7 +33,7 @@ Run this checklist from the repository root before a paper-facing release.
 
 ## Publication
 
-- [ ] Add an author-approved `LICENSE` file and remove `LICENSE_PENDING.md`.
+- [x] Release the repository code under the MIT License in `LICENSE`.
 - [ ] Add authors, paper title, venue/DOI, and citation metadata after they are final.
 - [ ] Run a final repository-wide search for legacy method names and machine-specific paths.
 - [ ] Review `git status`, tests, and the release commit/tag before publication.
