@@ -73,12 +73,15 @@ a1d071733d7111c9c014f024669f959182114e33
 
 The adapter declares this repository revision together with the `ViT-L/14` checkpoint identity in evaluation provenance.
 
-Use:
+OpenAI CLIP's `clip.load` API does not expose a strict `local_files_only` switch. The release adapter therefore refuses to call it unless network-capable loading is explicitly permitted. For CLIP-backed evaluation or re-encoding, pass:
 
 ```bash
 --adapter-module nacir.adapters.openai_clip_vitl14 \
---adapter-func load_clip_text_encoder
+--adapter-func load_clip_text_encoder \
+--allow-download
 ```
+
+`--allow-download` grants permission for `clip.load` to access the network if the checkpoint is missing. If the checkpoint is already cached, OpenAI CLIP reuses the cached copy. The declared repository/model revision is recorded in evaluation provenance; this declaration is not a runtime cryptographic verification of an arbitrary pre-existing local `clip` installation.
 
 ## Adding A New Retriever Adapter
 
