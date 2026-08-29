@@ -1,6 +1,6 @@
 # Adapter Guide
 
-NACIR is designed as a retrieval overlay. The core method consumes vectors and signed belief bundles; it does not own image loading, dataset indexing, feature extraction, or retriever training.
+NACIR is a retrieval overlay. The core method consumes query/corpus vectors and negative belief bundles; it does not own image loading, dataset indexing, feature extraction, or retriever training.
 
 ## Integration Boundary
 
@@ -8,10 +8,10 @@ An external pipeline is responsible for four things:
 
 1. Build or load corpus vectors with shape `[num_items, embedding_dim]`.
 2. Build one query vector per dialogue turn with shape `[embedding_dim]`.
-3. Encode belief strings into the same vector space as the query/corpus vectors.
-4. Keep the corpus row order stable across H0, H1, F1, and all comparisons.
+3. Encode negative belief strings into the same vector space as the query/corpus vectors.
+4. Keep corpus row order and session/target ordering stable across H0, Current, Persistent, and every paired comparison.
 
-NACIR then performs memory update, signed projection, negative masking, asymmetric proposal/constraint routing, and trust fusion.
+Persistent NACIR updates a negative-only memory, forms the weighted historical exclusion vector, subtracts it from the normalized host query, and ranks with the corrected query. No projection module, masking module, dual-route fusion, learned gate, ITM reranking, or counterfactual component is active in the canonical evaluator.
 
 ## Required Text Encoder Protocol
 
@@ -24,15 +24,15 @@ import torch
 class MyTextEncoder:
     def encode(self, texts: Sequence[str]) -> torch.Tensor:
         # Return a finite, non-zero tensor with shape [len(texts), D].
-        # The vectors should live in the same space as corpus/query vectors.
+        # The vectors must live in the same space as corpus/query vectors.
         return vectors
 ```
 
 The pipeline normalizes corpus and query vectors internally. Adapter outputs should already be normalized when possible; returning non-zero finite vectors is mandatory.
 
-## Current PlugIR Adapter
+## BLIP Adapter
 
-The current paper setup uses `nacir.adapters.plugir_blip`:
+The paper BLIP setup uses `nacir.adapters.plugir_blip`:
 
 ```python
 from nacir.adapters import load_blip_text_encoder
@@ -40,25 +40,33 @@ from nacir.adapters import load_blip_text_encoder
 encoder = load_blip_text_encoder(device="cuda", allow_download=False)
 ```
 
-This adapter loads the pinned BLIP retrieval text tower:
+The adapter loads the pinned BLIP retrieval text tower:
 
 ```text
 model: Salesforce/blip-itm-large-coco
 revision: 19502f1e215844f7e48bd48473f86932486d3441
 ```
 
-The checkpoint name includes `itm`, but the headline F1 method does not perform ITM reranking. This adapter is used to embed text into the same PlugIR-compatible space as the cached query and corpus vectors.
+The checkpoint name includes `itm`, but NACIR does not perform ITM reranking. This adapter is used only to embed negative concept text into the same retrieval space as the cached query and corpus vectors.
+
+## OpenAI CLIP ViT-L/14 Adapter
+
+The CLIP evaluation uses `nacir.adapters.openai_clip_vitl14` and requires the OpenAI CLIP package in addition to the base dependencies.
+
+```bash
+pip install git+https://github.com/openai/CLIP.git
+```
+
+Use:
+
+```bash
+--adapter-module nacir.adapters.openai_clip_vitl14 \
+--adapter-func load_clip_text_encoder
+```
 
 ## Adding A New Retriever Adapter
 
-Create a new file under `src/nacir/adapters/`, for example:
-
-```text
-src/nacir/adapters/clip_text.py
-src/nacir/adapters/my_retriever.py
-```
-
-The adapter should expose a class or loader returning an object with `.encode(texts)`.
+Create a file under `src/nacir/adapters/` and expose a class or loader returning an object with `.encode(texts)`.
 
 Minimal example:
 
@@ -79,11 +87,11 @@ class PrecomputedVocabularyEncoder:
         return F.normalize(torch.stack(vectors), dim=-1)
 ```
 
-For model-backed encoders, keep the model revision pinned and document whether downloads are allowed. Do not silently change embedding spaces between H0, H1, and F1.
+For model-backed encoders, pin the model revision and document whether downloads are allowed. Never silently change embedding spaces between paired runs.
 
 ## Adding A New Dataset
 
-A dataset adapter should export the release input files, not modify NACIR core code.
+A dataset adapter should export the release input files rather than modifying NACIR core code.
 
 `corpus_vectors.pt`:
 
@@ -104,7 +112,7 @@ torch.save([
 ], "sessions.pt")
 ```
 
-`beliefs_complete.json` must follow the schema described in `docs/INPUT_FORMAT.md`.
+The belief artifact must follow `docs/INPUT_FORMAT.md`.
 
 ## Validation Checklist
 
@@ -112,19 +120,19 @@ Before reporting results from a new adapter or dataset:
 
 - query vectors, corpus vectors, and belief vectors have the same dimension;
 - every vector is finite and non-zero;
-- corpus row order is identical across all runs;
+- corpus row order is identical across paired runs;
 - `session_id` aligns with belief `dialog_id`;
 - `target_index` is used only after scores are computed;
-- F1 uses `configs/f1_frozen.json` unless the experiment is explicitly labeled as sensitivity;
-- comparison is paired using the same sessions in the same order.
+- Persistent uses `configs/nacir_minus_frozen.json` unless explicitly labeled as a sensitivity analysis;
+- paired statistics are computed only after `pairing_fingerprint`, `session_ids`, and `target_indices` match exactly.
 
 ## Recommended Handoff Artifacts
 
-For each partner run, archive:
+For each paper-facing run, archive:
 
-- adapter name, model ID, model revision, and any feature-cache provenance;
-- `configs/f1_frozen.json` or the exact sensitivity config;
-- H0/H1/F1 `report.json`;
-- H0/H1/F1 `ranks.npz`;
-- `compare_h0_h1.json`, `compare_h1_f1.json`, and `compare_h0_f1.json`;
-- belief audit report and generation provenance.
+- adapter name, model ID/revision, and feature-cache provenance;
+- exact config file;
+- `ranks.npz` with pairing/evaluation provenance;
+- aggregate metrics/report JSON;
+- strict paired-comparison output;
+- belief audit/generation provenance.
