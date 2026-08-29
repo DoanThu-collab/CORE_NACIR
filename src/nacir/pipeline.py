@@ -13,6 +13,9 @@ from .interfaces import TextEncoder
 from .schema import RetrievalSession, SessionOutput, TurnTrace
 
 
+TRACE_TOP_K = 10
+
+
 class NACIRMinusPipeline:
     """Training-free persistent negative-memory implementation.
 
@@ -95,7 +98,7 @@ class NACIRMinusPipeline:
                     reject_rank=final_rank,
                     accept_rank=final_rank,
                     final_rank=final_rank,
-                    top_k_indices=ranked[: self.config.top_k].cpu().tolist(),
+                    top_k_indices=ranked[: min(self.config.top_k, TRACE_TOP_K)].cpu().tolist(),
                     diagnostics={
                         "memory": memory.diagnostics(),
                         "memory_add": add_stats,
