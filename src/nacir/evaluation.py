@@ -6,7 +6,7 @@ from typing import Literal
 
 import torch
 
-from .pipeline import NACIRMinusPipeline
+from .pipeline import NACIRMinusPipeline, TRACE_TOP_K
 from .schema import RetrievalSession, SessionOutput, TurnTrace
 
 RunMode = Literal["h0", "nacir"]
@@ -44,7 +44,7 @@ def evaluate_session(pipeline: NACIRMinusPipeline, session: RetrievalSession, mo
                 reject_rank=final_rank,
                 accept_rank=final_rank,
                 final_rank=final_rank,
-                top_k_indices=order[: pipeline.config.top_k].cpu().tolist(),
+                top_k_indices=order[: min(pipeline.config.top_k, TRACE_TOP_K)].cpu().tolist(),
                 diagnostics={"memory": {}, "memory_add": {}, "h0_query": True},
             )
         )
