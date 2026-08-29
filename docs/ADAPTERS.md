@@ -49,13 +49,29 @@ revision: 19502f1e215844f7e48bd48473f86932486d3441
 
 The checkpoint name includes `itm`, but NACIR does not perform ITM reranking. This adapter is used only to embed negative concept text into the same retrieval space as the cached query and corpus vectors.
 
-## OpenAI CLIP ViT-L/14 Adapter
-
-The CLIP evaluation uses `nacir.adapters.openai_clip_vitl14` and requires the OpenAI CLIP package in addition to the base dependencies.
+The adapter is offline-first. Hugging Face uses its standard cache when `HF_HOME` is unset. To choose an explicit cache location:
 
 ```bash
-pip install git+https://github.com/openai/CLIP.git
+export HF_HOME=/path/to/huggingface-cache
 ```
+
+If the pinned revision is not already cached, pass `--allow-download` on the first model-backed evaluation. Do not change the revision.
+
+## OpenAI CLIP ViT-L/14 Adapter
+
+The CLIP evaluation uses `nacir.adapters.openai_clip_vitl14`. Install the pinned optional dependency with:
+
+```bash
+pip install -e '.[clip]'
+```
+
+The package pins `openai/CLIP` to commit:
+
+```text
+a1d071733d7111c9c014f024669f959182114e33
+```
+
+The adapter declares this repository revision together with the `ViT-L/14` checkpoint identity in evaluation provenance.
 
 Use:
 
@@ -87,7 +103,7 @@ class PrecomputedVocabularyEncoder:
         return F.normalize(torch.stack(vectors), dim=-1)
 ```
 
-For model-backed encoders, pin the model revision and document whether downloads are allowed. Never silently change embedding spaces between paired runs.
+For model-backed encoders, expose a stable `MODEL_REVISION` constant when possible, pin the model/package revision, and document whether downloads are allowed. Never silently change embedding spaces between paired runs.
 
 ## Adding A New Dataset
 
