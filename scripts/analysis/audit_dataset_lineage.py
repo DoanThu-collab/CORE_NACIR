@@ -31,20 +31,23 @@ def summarize_sessions(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]
 
     ids, targets, turns, dims = [], [], [], []
     have_texts = True
-    for i, s in enumerate(sessions):
-        if not isinstance(s, dict):
+    for i, session in enumerate(sessions):
+        if not isinstance(session, dict):
             raise ValueError(f"{path}: session {i} is not a dict")
-        sid = s.get("session_id")
-        target = s.get("target_index")
-        qv = s.get("query_vectors")
-        qt = s.get("query_texts")
-        if not isinstance(qv, torch.Tensor) or qv.ndim != 2:
+        sid = session.get("session_id")
+        target = session.get("target_index")
+        query_vectors = session.get("query_vectors")
+        query_texts = session.get("query_texts")
+        if not isinstance(query_vectors, torch.Tensor) or query_vectors.ndim != 2:
             raise ValueError(f"{path}: invalid query_vectors at session {i}")
         ids.append(int(sid))
         targets.append(int(target))
-        turns.append(int(qv.shape[0]))
-        dims.append(int(qv.shape[1]))
-        have_texts &= isinstance(qt, list) and len(qt) == qv.shape[0]
+        turns.append(int(query_vectors.shape[0]))
+        dims.append(int(query_vectors.shape[1]))
+        have_texts &= (
+            isinstance(query_texts, list)
+            and len(query_texts) == query_vectors.shape[0]
+        )
 
     summary = {
         "path": str(path),
@@ -82,15 +85,15 @@ def summarize_beliefs(path: Path) -> dict[str, Any]:
     pos = neg = turns = 0
     bad_ids = 0
     turn_counts = []
-    for did, d in enumerate(dialogs):
-        if d.get("dialog_id") != did:
+    for did, dialog in enumerate(dialogs):
+        if dialog.get("dialog_id") != did:
             bad_ids += 1
-        ts = d.get("turns", [])
-        turn_counts.append(len(ts))
-        for tid, t in enumerate(ts):
+        dialog_turns = dialog.get("turns", [])
+        turn_counts.append(len(dialog_turns))
+        for turn in dialog_turns:
             turns += 1
-            pos += len(t.get("positives", []) or [])
-            neg += len(t.get("negatives", []) or [])
+            pos += len(turn.get("positives", []) or [])
+            neg += len(turn.get("negatives", []) or [])
 
     return {
         "path": str(path),
@@ -111,35 +114,74 @@ def summarize_beliefs(path: Path) -> dict[str, Any]:
 def git_search(term: str) -> list[str]:
     try:
         out = subprocess.check_output(
-            ["git", "log", "--all", "--oneline", "-S", term, "--", "configs", "scripts", "src"],
+            [
+                "git",
+                "log",
+                "--all",
+                "--oneline",
+                "-S",
+                term,
+                "--",
+                "configs",
+                "scripts",
+                "src",
+            ],
             text=True,
             stderr=subprocess.STDOUT,
         )
         return [x for x in out.splitlines() if x.strip()][:100]
-    except Exception as e:
-        return [f"git search failed: {e}"]
+    except Exception as exc:
+        return [f"git search failed: {exc}"]
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--beliefs", type=Path, default=Path(
-        "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR_FIX/data/beliefs_v2/"
-        "llama3_1_8b_v9_final_20260824.json"
-    ))
-    ap.add_argument("--config", type=Path, default=Path("configs/nacir_minus_frozen.json"))
-    ap.add_argument("--blip-sessions", type=Path, default=Path("artifacts_final/sessions_chatir_blip.pt"))
-    ap.add_argument("--clip-sessions", type=Path, default=Path("artifacts_final/sessions_chatir_clip_vitl14.pt"))
-    ap.add_argument("--blip-corpus", type=Path, default=Path("artifacts_final/corpus_blip_large_vectors.pt"))
-    ap.add_argument("--clip-corpus", type=Path, default=Path("artifacts_final/corpus_openai_clip_vitl14_vectors.pt"))
-    ap.add_argument("--out", type=Path, default=Path("artifacts_final/analysis/dataset_lineage_audit.json"))
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--beliefs", type=Path, required=True)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=Path("configs/nacir_minus_frozen.json"),
+    )
+    parser.add_argument(
+        "--blip-sessions",
+        type=Path,
+        default=Path("artifacts_final/sessions_chatir_blip.pt"),
+    )
+    parser.add_argument(
+        "--clip-sessions",
+        type=Path,
+        default=Path("artifacts_final/sessions_chatir_clip_vitl14.pt"),
+    )
+    parser.add_argument(
+        "--blip-corpus",
+        type=Path,
+        default=Path("artifacts_final/corpus_blip_large_vectors.pt"),
+    )
+    parser.add_argument(
+        "--clip-corpus",
+        type=Path,
+        default=Path("artifacts_final/corpus_openai_clip_vitl14_vectors.pt"),
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("outputs/analysis/dataset_lineage_audit.json"),
+    )
+    args = parser.parse_args()
 
-    required = [args.beliefs, args.config, args.blip_sessions, args.clip_sessions, args.blip_corpus, args.clip_corpus]
-    missing = [str(p) for p in required if not p.exists()]
+    required = [
+        args.beliefs,
+        args.config,
+        args.blip_sessions,
+        args.clip_sessions,
+        args.blip_corpus,
+        args.clip_corpus,
+    ]
+    missing = [str(path) for path in required if not path.exists()]
     if missing:
         print("MISSING FILES:")
-        for p in missing:
-            print(" -", p)
+        for path in missing:
+            print(" -", path)
         raise SystemExit(2)
 
     blip_info, blip_sessions = summarize_sessions(args.blip_sessions)
@@ -158,15 +200,16 @@ def main():
     }
     text_equal = True
     compared = 0
-    for b, c in zip(blip_sessions, clip_sessions):
-        if int(b["session_id"]) != int(c["session_id"]):
+    for blip_session, clip_session in zip(blip_sessions, clip_sessions):
+        if int(blip_session["session_id"]) != int(clip_session["session_id"]):
             alignment["session_id_equal"] = False
-        if int(b["target_index"]) != int(c["target_index"]):
+        if int(blip_session["target_index"]) != int(clip_session["target_index"]):
             alignment["target_index_equal"] = False
-        bt, ct = b.get("query_texts"), c.get("query_texts")
-        if isinstance(bt, list) and isinstance(ct, list):
+        blip_texts = blip_session.get("query_texts")
+        clip_texts = clip_session.get("query_texts")
+        if isinstance(blip_texts, list) and isinstance(clip_texts, list):
             compared += 1
-            if bt != ct:
+            if blip_texts != clip_texts:
                 text_equal = False
     if compared:
         alignment["query_texts_equal_where_available"] = text_equal
@@ -184,15 +227,23 @@ def main():
         "same_target_indices": alignment["target_index_equal"],
         "blip_corpus_50000": blip_corpus["shape"][0] == 50000,
         "clip_corpus_50000": clip_corpus["shape"][0] == 50000,
-        "blip_session_dim_matches_corpus": blip_info["embedding_dims_unique"] == [blip_corpus["shape"][1]],
-        "clip_session_dim_matches_corpus": clip_info["embedding_dims_unique"] == [clip_corpus["shape"][1]],
+        "blip_session_dim_matches_corpus": (
+            blip_info["embedding_dims_unique"] == [blip_corpus["shape"][1]]
+        ),
+        "clip_session_dim_matches_corpus": (
+            clip_info["embedding_dims_unique"] == [clip_corpus["shape"][1]]
+        ),
     }
 
     report = {
         "status": "PASS" if all(checks.values()) else "FAIL",
         "checks": checks,
         "beliefs": beliefs,
-        "config": {"path": str(args.config), "sha256": sha256(args.config), "contents": config},
+        "config": {
+            "path": str(args.config),
+            "sha256": sha256(args.config),
+            "contents": config,
+        },
         "blip_sessions": blip_info,
         "clip_sessions": clip_info,
         "blip_corpus": blip_corpus,
@@ -205,28 +256,22 @@ def main():
         "manual_question_required": (
             "Were lambda=0.275 and rho=0.10 selected after inspecting performance on "
             "these same 2064 evaluation dialogues? Files/git history cannot prove this. "
-            "If yes or uncertain, create a fixed development/test split before making "
-            "held-out claims."
+            "If yes or uncertain, avoid held-out claims unless a fixed development/test "
+            "split is established."
         ),
     }
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    args.out.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
     print("=" * 80)
     print("DATASET / ARTIFACT LINEAGE AUDIT")
     print("=" * 80)
-    for k, v in checks.items():
-        print(f"{'PASS' if v else 'FAIL':4s}  {k}")
-    print()
-    print("Beliefs:", beliefs["num_dialogues"], "dialogs,", beliefs["num_feedback_turns"],
-          "feedback turns,", beliefs["num_negative_beliefs"], "negative beliefs")
-    print("BLIP sessions:", blip_info["num_sessions"], blip_info["num_turns_unique"],
-          "dim", blip_info["embedding_dims_unique"], "corpus", blip_corpus["shape"])
-    print("CLIP sessions:", clip_info["num_sessions"], clip_info["num_turns_unique"],
-          "dim", clip_info["embedding_dims_unique"], "corpus", clip_corpus["shape"])
-    print("Cross-backbone target alignment:", alignment["target_index_equal"])
-    print("Cross-backbone query-text alignment:", alignment["query_texts_equal_where_available"])
+    for key, value in checks.items():
+        print(f"{'PASS' if value else 'FAIL':4s}  {key}")
     print("Overall:", report["status"])
     print("Saved:", args.out)
     print()
