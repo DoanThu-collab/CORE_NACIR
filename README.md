@@ -22,11 +22,26 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 ```
 
-For the OpenAI CLIP ViT-L/14 adapter, install OpenAI CLIP separately:
+For the OpenAI CLIP ViT-L/14 adapter, install the pinned optional dependency:
 
 ```bash
-pip install git+https://github.com/openai/CLIP.git
+pip install -e '.[clip]'
 ```
+
+The CLIP optional dependency pins `openai/CLIP` to commit
+`a1d071733d7111c9c014f024669f959182114e33`.
+
+The BLIP adapter is offline-first. If model files are not already in the default
+Hugging Face cache, either set a cache location before use or explicitly permit
+downloads:
+
+```bash
+export HF_HOME=/path/to/huggingface-cache
+# add --allow-download on the first model-backed run if the pinned revision
+# is not already cached
+```
+
+`HF_HOME` is optional; the standard Hugging Face cache is used when it is unset.
 
 ## Evaluate
 
@@ -66,6 +81,32 @@ PYTHONPATH=src python scripts/evaluate.py \
 ```
 
 Use an adapter that matches the retrieval embedding space. See `docs/ADAPTERS.md`.
+
+## Rank archive contract
+
+Every archive emitted by the unified evaluator stores:
+
+```text
+ranks
+session_ids
+target_indices
+pairing_fingerprint
+evaluation_fingerprint
+provenance_status
+metadata_json
+```
+
+`pairing_fingerprint` identifies the aligned evaluation problem and hashes the
+exact session file, corpus vectors, embedding dimension, session ordering, and
+target ordering. Paired statistics are rejected unless this fingerprint and the
+explicit session/target arrays agree.
+
+`evaluation_fingerprint` additionally identifies the concrete method run,
+including belief/config hashes and adapter/model metadata. It is expected to
+differ across H0, Current, and Persistent.
+
+Use `scripts/compare_runs.py` or `scripts/compare_runs_strict.py` for paired
+comparisons; do not compare paper runs solely by array shape.
 
 ## Repository layout
 
