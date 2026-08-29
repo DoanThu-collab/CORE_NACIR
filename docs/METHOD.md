@@ -1,65 +1,66 @@
-# Frozen paper method
+# NACIR method
 
 ## Scope
 
-This implementation exposes the final training-free method only. Its method name
-is **F1 dual-route trust fusion**. The ablation protocol has three runs:
+NACIR is a training-free adapter for conversational image retrieval. The canonical implementation preserves **negative visual evidence** across dialogue turns and applies that persistent exclusion state in the same embedding space used by the host retriever.
 
-| Run | Scoring rule |
+The main evaluation distinguishes three conditions:
+
+| Condition | Negative evidence used |
 | --- | --- |
-| H0 | cosine similarity between the current query and every corpus vector |
-| H1 | persistent signed memory, negative projection, and negative masking |
-| F1 | H1 anchor plus positive-only proposal routing and trust-weighted fusion |
+| `h0` | none; host query only |
+| `current` | current feedback turn only |
+| `persistent` | persistent negative memory across turns |
 
-All vectors are L2-normalized. A session target is used only after scores have
-been computed, to obtain its rank for evaluation.
+The target index is used only after retrieval scores have been computed, to obtain the evaluation rank.
 
-## Signed memory
+## Persistent negative memory
 
-Every dialogue turn can add positive and negative concepts with a confidence
-score. The memory is persistent over the session, retains history, and stores at
-most 50 concepts. The frozen weights are:
+Each retained negative concept stores text, its embedding vector, confidence, and the turn at which it was last updated. For concept `j` at retrieval turn `t`, the frozen weight is
+
+\[
+w_{j,t}=\frac{c_j}{1+\rho(t-\tau_j)}.
+\]
+
+The persistent negative memory vector is
+
+\[
+m_t^- = \sum_j w_{j,t} v_j.
+\]
+
+Repeated canonical negative concepts refresh their vector, confidence, and update turn. The frozen release disables semantic merging and stores at most 50 concepts.
+
+## Query correction
+
+Let `q_t` be the host query vector and `\bar q_t=q_t/\lVert q_t\rVert_2`. NACIR forms
+
+\[
+q_t^- = \operatorname{norm}\!\left(\bar q_t - \lambda\,\operatorname{norm}(m_t^-)\right).
+\]
+
+The frozen configuration uses:
 
 | Parameter | Value |
 | --- | ---: |
-| positive weight | 0.55 |
-| negative weight | 0.275 |
-| recency decay | 0.10 |
-| override boost | 0.15 |
+| `lambda` | 0.275 |
+| `rho` | 0.10 |
+| maximum memory concepts | 50 |
 | semantic merge | disabled |
 
-The actual belief artifact must be schema version 2, complete, provenance-bound,
-and audited before use. `BeliefStore` rejects incomplete or structurally
-inconsistent artifacts.
+Only negative beliefs are active in the canonical method. No projection module, masking module, dual-route fusion, learned gate, ITM reranking, or counterfactual component is part of the frozen NACIR evaluator.
 
-## H1 anchor
+## Current-turn control
 
-H1 synthesizes a signed query from the current query and memory. It removes
-components aligned with negative concept vectors, then applies a bounded
-similarity-based penalty to corpus candidates. Frozen values are projection
-strength 0.20, masking threshold 0.25, maximum penalty 0.18, and temperature
-0.10.
+The `current` condition uses exactly the same query-correction form but constructs its negative state from the current feedback turn only. It therefore isolates explicit current-turn negative awareness from the additional effect of persistence.
 
-## F1 proposal, constraint, and fusion
+When the current feedback contains no extracted negative belief, `current` reduces to the host baseline (up to the evaluator's normalization convention). This property underlies the clean persistence challenge used in the paper analysis.
 
-F1 forms a positive-only proposal query. The proposal ranks candidates, then the
-asymmetric constraint router may reorder only its top 500 candidates. Negative
-evidence is used exclusively in this local constraint stage, with strength 0.275,
-posterior temperature 0.05, minimum spread 0.01, and KL budget 0.002.
+## Retrieval spaces
 
-The router is not allowed to replace the anchor globally. It returns diagnostics
-used by `TrustWeightedDualRouteFusion`, which calculates the target-free trust
-weight and combines proposal scores with H1 anchor scores. No learned gate,
-ground-truth dependent routing, ITM reranking, visual feedback, or
-counterfactual module is used.
+The adapter requires a text encoder whose output dimension and semantic space match the precomputed corpus embeddings. The release includes adapters for the BLIP-based host space used by the main ChatIR-style evaluation and for OpenAI CLIP ViT-L/14. The evaluator validates embedding dimensionality before NACIR scoring.
 
-## Metrics and uncertainty
+## Frozen configuration
 
-Ranks are zero-indexed. Recall@10 is the fraction of sessions whose rank at a
-given turn is below 10. Hits@10 is cumulative over turns. BRI is the mean
-trapezoidal integral of `log(best_rank_so_far + 1)` over dialogue turns; lower is
-better. Run comparison uses paired bootstrap confidence intervals for BRI and
-Recall@10, exact McNemar tests per turn, and Holm correction across turns.
+The machine-readable canonical configuration is:
 
-The frozen configuration is machine-readable in
-[`configs/f1_frozen.json`](../configs/f1_frozen.json).
+`configs/nacir_minus_frozen.json`
