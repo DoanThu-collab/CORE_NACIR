@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the clean history-only persistence challenge from frozen artifacts.
 
-This script does NOT run a retrieval model.  It selects retrieval states where:
+This script does NOT run a retrieval model. It selects retrieval states where:
   1) the current feedback turn contains zero extracted negative beliefs;
   2) at least one historical negative belief is still active;
   3) the historical negative is marked actionable by the frozen structured artifact;
@@ -9,7 +9,7 @@ This script does NOT run a retrieval model.  It selects retrieval states where:
      until a later actionable negative re-establishes the concept.
 
 Because condition (1) holds, the frozen Current-turn NACIR run must be exactly
-identical to H0 on every selected state.  The Persistent-vs-H0 difference therefore
+identical to H0 on every selected state. The Persistent-vs-H0 difference therefore
 isolates historical negative state.
 """
 
@@ -86,7 +86,6 @@ def build_states(beliefs_path: Path, structured_path: Path) -> tuple[list[dict],
         if not isinstance(turns, list) or len(turns) != 10:
             raise ValueError(f"dialog {did}: expected 10 feedback turns")
 
-        # concept -> metadata for currently valid actionable historical negative.
         active: dict[str, dict] = {}
         invalidated_once: set[str] = set()
 
@@ -98,8 +97,6 @@ def build_states(beliefs_path: Path, structured_path: Path) -> tuple[list[dict],
             if not isinstance(positives, list) or not isinstance(negatives, list):
                 raise ValueError(f"dialog {did}, turn {feedback_turn}: invalid belief lists")
 
-            # Exact positive evidence invalidates a previously active exact-canonical
-            # negative before evaluating this retrieval state.
             for pos in positives:
                 key = canon(pos["attribute"])
                 if key in active:
@@ -107,7 +104,6 @@ def build_states(beliefs_path: Path, structured_path: Path) -> tuple[list[dict],
                     counters["exact_positive_invalidations"] += 1
                     invalidated_once.add(key)
 
-            # Add/refresh only frozen-actionable negatives to the CLEAN state.
             for ni, neg in enumerate(negatives):
                 counters["negative_events"] += 1
                 rec_key = (did, feedback_turn, ni)
@@ -139,8 +135,6 @@ def build_states(beliefs_path: Path, structured_path: Path) -> tuple[list[dict],
                     "confidence": float(neg["confidence"]),
                 }
 
-            # Critical condition: RAW current turn has zero negatives.  This guarantees
-            # Current-turn NACIR has empty memory and must equal H0 exactly.
             if len(negatives) == 0 and active:
                 ages = [
                     retrieval_turn - x["last_negative_retrieval_turn"]
@@ -280,36 +274,47 @@ def analyze(
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--beliefs",
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--beliefs", type=Path, required=True)
+    parser.add_argument("--structured", type=Path, required=True)
+    parser.add_argument(
+        "--blip-h0",
         type=Path,
-        default=Path(
-            "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR_FIX/"
-            "data/beliefs_v2/llama3_1_8b_v9_final_20260824.json"
-        ),
+        default=Path("runs_final/chatir_blip_h0/ranks.npz"),
     )
-    ap.add_argument(
-        "--structured",
+    parser.add_argument(
+        "--blip-current",
         type=Path,
-        default=Path(
-            "artifacts_final/typed_nacir/chatir_structured_negative_final_v1_1.json"
-        ),
+        default=Path("runs_final/chatir_blip_nacir_current_turn/ranks.npz"),
     )
-    ap.add_argument("--blip-h0", type=Path, default=Path("runs_final/chatir_blip_h0/ranks.npz"))
-    ap.add_argument("--blip-current", type=Path, default=Path("runs_final/chatir_blip_nacir_current_turn/ranks.npz"))
-    ap.add_argument("--blip-persistent", type=Path, default=Path("runs_final/chatir_blip_nacir_minus/ranks.npz"))
-    ap.add_argument("--clip-h0", type=Path, default=Path("runs_final/chatir_clip_vitl14_h0/ranks.npz"))
-    ap.add_argument("--clip-current", type=Path, default=Path("runs_final/chatir_clip_vitl14_nacir_current_turn/ranks.npz"))
-    ap.add_argument("--clip-persistent", type=Path, default=Path("runs_final/chatir_clip_vitl14_nacir_minus/ranks.npz"))
-    ap.add_argument("--bootstrap-samples", type=int, default=20_000)
-    ap.add_argument("--seed", type=int, default=20260829)
-    ap.add_argument(
+    parser.add_argument(
+        "--blip-persistent",
+        type=Path,
+        default=Path("runs_final/chatir_blip_nacir_minus/ranks.npz"),
+    )
+    parser.add_argument(
+        "--clip-h0",
+        type=Path,
+        default=Path("runs_final/chatir_clip_vitl14_h0/ranks.npz"),
+    )
+    parser.add_argument(
+        "--clip-current",
+        type=Path,
+        default=Path("runs_final/chatir_clip_vitl14_nacir_current_turn/ranks.npz"),
+    )
+    parser.add_argument(
+        "--clip-persistent",
+        type=Path,
+        default=Path("runs_final/chatir_clip_vitl14_nacir_minus/ranks.npz"),
+    )
+    parser.add_argument("--bootstrap-samples", type=int, default=20_000)
+    parser.add_argument("--seed", type=int, default=20260829)
+    parser.add_argument(
         "--out-dir",
         type=Path,
-        default=Path("artifacts_final/analysis/clean_persistence"),
+        default=Path("outputs/analysis/clean_persistence"),
     )
-    args = ap.parse_args()
+    args = parser.parse_args()
 
     states, counters = build_states(args.beliefs, args.structured)
     if not states:
@@ -324,19 +329,29 @@ def main() -> None:
 
     rows = []
     rows += analyze(
-        "BLIP", states, blip_h0, blip_current, blip_persistent,
-        samples=args.bootstrap_samples, seed=args.seed,
+        "BLIP",
+        states,
+        blip_h0,
+        blip_current,
+        blip_persistent,
+        samples=args.bootstrap_samples,
+        seed=args.seed,
     )
     rows += analyze(
-        "CLIP_ViT-L14", states, clip_h0, clip_current, clip_persistent,
-        samples=args.bootstrap_samples, seed=args.seed,
+        "CLIP_ViT-L14",
+        states,
+        clip_h0,
+        clip_current,
+        clip_persistent,
+        samples=args.bootstrap_samples,
+        seed=args.seed,
     )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     with (args.out_dir / "clean_persistence_states.json").open(
         "w", encoding="utf-8"
-    ) as f:
+    ) as handle:
         json.dump(
             {
                 "definition": {
@@ -350,14 +365,14 @@ def main() -> None:
                 "counters": counters,
                 "states": states,
             },
-            f,
+            handle,
             indent=2,
         )
 
     with (args.out_dir / "clean_persistence_results.csv").open(
         "w", newline="", encoding="utf-8"
-    ) as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]))
+    ) as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
 
@@ -371,16 +386,16 @@ def main() -> None:
         f"non_actionable_events={counters['non_actionable_negative_events']} "
         f"positive_invalidations={counters['exact_positive_invalidations']}"
     )
-    for r in rows:
-        if r["persistent_minus_h0_pp"] is None:
+    for row in rows:
+        if row["persistent_minus_h0_pp"] is None:
             continue
         print(
-            f"{r['backbone']:12s} {r['group']:24s} "
-            f"states={r['states']:4d} dialogs={r['dialogs']:4d} "
-            f"H0={r['h0_r10']:6.2f} Current={r['current_r10']:6.2f} "
-            f"Persistent={r['persistent_r10']:6.2f} "
-            f"Δ={r['persistent_minus_h0_pp']:+6.2f} "
-            f"[{r['ci_low']:+6.2f},{r['ci_high']:+6.2f}]"
+            f"{row['backbone']:12s} {row['group']:24s} "
+            f"states={row['states']:4d} dialogs={row['dialogs']:4d} "
+            f"H0={row['h0_r10']:6.2f} Current={row['current_r10']:6.2f} "
+            f"Persistent={row['persistent_r10']:6.2f} "
+            f"Δ={row['persistent_minus_h0_pp']:+6.2f} "
+            f"[{row['ci_low']:+6.2f},{row['ci_high']:+6.2f}]"
         )
     print("H0 == Current at rank level on every selected state: PASS")
     print("Saved:", args.out_dir)
