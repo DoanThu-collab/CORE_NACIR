@@ -10,6 +10,8 @@ import torch.nn.functional as F
 
 
 MODEL_ID = "OpenAI CLIP ViT-L/14"
+CLIP_REPOSITORY_REVISION = "a1d071733d7111c9c014f024669f959182114e33"
+MODEL_REVISION = f"openai/CLIP@{CLIP_REPOSITORY_REVISION}:ViT-L/14"
 
 
 class OpenAICLIPTextEncoder:
@@ -29,7 +31,7 @@ class OpenAICLIPTextEncoder:
 
         tokens = clip.tokenize(
             values,
-            truncate=True
+            truncate=True,
         ).to(self.device)
 
         vectors = self.model.encode_text(tokens).float()
