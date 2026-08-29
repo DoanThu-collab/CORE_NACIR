@@ -53,21 +53,32 @@ def main() -> None:
         raise ValueError("baseline and candidate ranks must align")
 
     delta, low, high = paired_bri_delta_ci(baseline, candidate)
+
+    # Turn 0 is the pre-feedback host state by protocol construction. Statistical
+    # correction is therefore defined structurally on feedback-conditioned turns
+    # 1..T-1, never selected from observed equality or significance.
+    tested_turns = list(range(1, baseline.shape[0]))
     raw_pvalues = [
         exact_mcnemar_pvalue(
             baseline[turn],
             candidate[turn],
             k=10,
         )["pvalue_exact_two_sided"]
-        for turn in range(baseline.shape[0])
+        for turn in tested_turns
     ]
-    holm = holm_adjust(raw_pvalues)
+    adjusted = holm_adjust(raw_pvalues)
+    holm_by_turn = dict(zip(tested_turns, adjusted))
 
     rounds = []
     for turn in range(baseline.shape[0]):
         recall_delta, recall_low, recall_high = paired_recall_delta_ci(
             baseline[turn],
             candidate[turn],
+        )
+        mcnemar = exact_mcnemar_pvalue(
+            baseline[turn],
+            candidate[turn],
+            k=10,
         )
         rounds.append(
             {
@@ -80,12 +91,10 @@ def main() -> None:
                 ),
                 "candidate_minus_baseline_recall_at_10": recall_delta,
                 "confidence_interval": [recall_low, recall_high],
-                "mcnemar": exact_mcnemar_pvalue(
-                    baseline[turn],
-                    candidate[turn],
-                    k=10,
-                ),
-                "holm_adjusted_pvalue": holm[turn],
+                "mcnemar": mcnemar,
+                "holm_family": "feedback_turns_1_to_T_minus_1",
+                "holm_tested": turn in holm_by_turn,
+                "holm_adjusted_pvalue": holm_by_turn.get(turn),
             }
         )
 
@@ -94,6 +103,11 @@ def main() -> None:
         "pairing_provenance": pairing,
         "baseline": str(_resolve(args.baseline)),
         "candidate": str(_resolve(args.candidate)),
+        "multiple_testing": {
+            "procedure": "Holm",
+            "selection_rule": "structural feedback turns only; turn 0 excluded by protocol",
+            "tested_turns": tested_turns,
+        },
         "bri": {
             "baseline": compute_metrics(baseline)["bri"],
             "candidate": compute_metrics(candidate)["bri"],
