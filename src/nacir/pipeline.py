@@ -1,4 +1,4 @@
-"""NACIR- (Negative Only) conversational retrieval pipeline."""
+"""Canonical persistent negative-belief NACIR retrieval pipeline."""
 
 from __future__ import annotations
 
@@ -14,10 +14,11 @@ from .schema import RetrievalSession, SessionOutput, TurnTrace
 
 
 class NACIRMinusPipeline:
-    """Training-free Negative-Only implementation (Eq 2 of the paper).
+    """Training-free persistent negative-memory implementation.
 
-    Inputs are precomputed query vectors, corpus vectors, and per-turn signed
-    beliefs. ``target_index`` is used only for evaluation traces and never affects
+    Inputs are precomputed query vectors, corpus vectors, and per-turn belief
+    bundles. The canonical memory update uses negative beliefs only.
+    ``target_index`` is used only for evaluation traces and never affects
     memory or ranking.
     """
 
@@ -36,7 +37,7 @@ class NACIRMinusPipeline:
             raise ValueError("corpus_vectors must be finite")
         if bool((corpus_vectors.float().norm(dim=-1) <= 1e-8).any()):
             raise ValueError("corpus_vectors must be non-zero")
-        
+
         self.config = config
         self.device = device or str(corpus_vectors.device)
         self.corpus_vectors = F.normalize(corpus_vectors.float().to(self.device), dim=-1)
@@ -51,13 +52,13 @@ class NACIRMinusPipeline:
         return F.normalize(query, dim=0)
 
     def score(self, query_vector: torch.Tensor, memory: ConceptMemory) -> tuple[torch.Tensor, dict[str, Any]]:
-        """Return NACIR- scores for one dialogue turn."""
+        """Return persistent NACIR scores for one dialogue turn."""
         base_query = self._query(query_vector)
-        
-        # Eq 2: q− = norm(q0 − λ− * norm(Sum(ωj * vj)))
+
+        # q^- = norm(q_bar - lambda * norm(sum_j w_j v_j))
         q_minus = memory.synthesize(base_query)
         scores = q_minus @ self.corpus_vectors.T
-        
+
         return scores, {"anchor_query": q_minus}
 
     @staticmethod
@@ -81,11 +82,11 @@ class NACIRMinusPipeline:
                 add_stats = {"added": 0, "updated": 0, "overridden": 0, "evicted": 0}
             if turn.query_vector is None:
                 raise ValueError("paper release requires precomputed query vectors")
-            
+
             scores, diagnostics = self.score(turn.query_vector, memory)
             ranked = torch.argsort(scores, descending=True, stable=True)
             final_rank = self._rank_of(scores, session.target_index)
-            
+
             traces.append(
                 TurnTrace(
                     turn_index=turn.turn_index,
