@@ -1,23 +1,20 @@
 # NACIR Reproducibility Record
 
-## Canonical main-evaluation freeze
+## Canonical main evaluation
 
-Git tag:
+The canonical main-evaluation freeze is:
 
     paper-main-eval-v1
 
-This tag corresponds to the unified evaluator used for the main NACIR
-experiments.
-
-The evaluator was regression-tested against the previously frozen rank
-artifacts for all six main conditions:
+This tag contains the unified evaluator used to reproduce all six main
+experimental conditions exactly against the frozen rank artifacts.
 
 | Backbone | H0 | Current-turn | Persistent NACIR |
 |---|---|---|---|
 | BLIP | exact match | exact match | exact match |
 | OpenAI CLIP ViT-L/14 | exact match | exact match | exact match |
 
-For every run:
+For all six runs:
 
     rank matrix shape = (11, 2064)
     exact equality = True
@@ -36,25 +33,43 @@ OpenAI CLIP ViT-L/14:
 - Current-turn: 39.825584
 - Persistent NACIR: 41.230618
 
-## Canonical belief artifact
-
-    /mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR_FIX/data/beliefs_v2/llama3_1_8b_v9_final_20260824.json
-
 ## Frozen NACIR configuration
 
     configs/nacir_minus_frozen.json
 
 Main parameters:
+
 - lambda = 0.275
 - rho = 0.10
-- max memory concepts = 50
+- maximum memory concepts = 50
 - semantic merge = disabled
 
-## Notes
+The canonical method uses negative beliefs only.
 
-NACIR is a negative-only persistent belief-state retrieval adapter.
-Positive beliefs are not used by the canonical main method.
+## Canonical belief artifact
 
-The unified evaluator performs a fail-fast dimension check between the
-backbone-specific negative-concept text encoder and the retrieval embedding
-space.
+The main experiments use the frozen Llama-3.1-8B belief artifact:
+
+    llama3_1_8b_v9_final_20260824.json
+
+The original experiment workspace stored this artifact outside the repository.
+Its path in historical analysis scripts is therefore environment-specific.
+
+## Auxiliary analyses
+
+`scripts/analysis/` contains analysis and audit scripts used for belief-state,
+negative-density, stronger-host, and diagnostic analyses.
+
+`scripts/experiments/` contains artifact-building scripts for the stronger-host
+and diagnostic experiments.
+
+Some auxiliary scripts reference historical external datasets or frozen
+workspaces through environment-specific paths. These auxiliary paths are not
+part of the canonical six-run evaluator and do not affect the frozen main
+results identified by `paper-main-eval-v1`.
+
+## Evaluator safety
+
+For NACIR conditions, the unified evaluator checks that the negative-concept
+text encoder and corpus embeddings have matching dimensions before evaluation.
+H0 does not invoke the belief encoder.

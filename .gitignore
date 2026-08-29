@@ -53,3 +53,5 @@ repo_structure_files.txt
 repo_tree.txt
 persistent_vs_gate_bootstrap_20k.txt
 help.txt
+runs_deadline/
+artifacts_final/cache/
