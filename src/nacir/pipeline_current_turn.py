@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from .config import NACIRMinusConfig
 from .core.memory import ConceptMemory
 from .interfaces import TextEncoder
+from .pipeline import TRACE_TOP_K
 from .schema import RetrievalSession, SessionOutput, TurnTrace
 
 
@@ -177,7 +178,7 @@ class NACIRCurrentTurnPipeline:
                     accept_rank=final_rank,
                     final_rank=final_rank,
                     top_k_indices=ranked[
-                        : self.config.top_k
+                        : min(self.config.top_k, TRACE_TOP_K)
                     ].cpu().tolist(),
                     diagnostics={
                         "memory":
