@@ -6,15 +6,14 @@ The canonical main-evaluation freeze is:
 
     paper-main-eval-v1
 
-This tag contains the unified evaluator used to reproduce all six main
-experimental conditions exactly against the frozen rank artifacts.
+This tag identifies the frozen six-condition main evaluation used for exact-rank regression.
 
-| Backbone | H0 | Current-turn | Persistent NACIR |
+| Retrieval space | H0 | Current-turn | Persistent NACIR |
 |---|---|---|---|
 | BLIP | exact match | exact match | exact match |
 | OpenAI CLIP ViT-L/14 | exact match | exact match | exact match |
 
-For all six runs:
+For all six frozen main runs:
 
     rank matrix shape = (11, 2064)
     exact equality = True
@@ -44,7 +43,7 @@ Main parameters:
 - maximum memory concepts = 50
 - semantic merge = disabled
 
-The canonical method uses negative beliefs only.
+The canonical retrieval intervention uses negative beliefs only.
 
 ## Canonical belief artifact
 
@@ -52,24 +51,36 @@ The main experiments use the frozen Llama-3.1-8B belief artifact:
 
     llama3_1_8b_v9_final_20260824.json
 
-The original experiment workspace stored this artifact outside the repository.
-Its path in historical analysis scripts is therefore environment-specific.
+The artifact itself is not redistributed in this repository. Pass its local path explicitly with `--beliefs` or the `BELIEFS` environment variable used by the shell runners.
 
-## Auxiliary analyses
+## Provenance and paired comparisons
 
-`scripts/analysis/` contains analysis and audit scripts used for belief-state,
-negative-density, stronger-host, and diagnostic analyses.
+New evaluator outputs write strict provenance into `ranks.npz`:
 
-`scripts/experiments/` contains artifact-building scripts for the stronger-host
-and diagnostic experiments.
+- `session_ids`
+- `target_indices`
+- `pairing_fingerprint`
+- `evaluation_fingerprint`
+- `provenance_status`
+- `metadata_json`
 
-Some auxiliary scripts reference historical external datasets or frozen
-workspaces through environment-specific paths. These auxiliary paths are not
-part of the canonical six-run evaluator and do not affect the frozen main
-results identified by `paper-main-eval-v1`.
+The pairing fingerprint binds the session artifact, corpus vectors, embedding dimension, and aligned session/target ordering. Paired statistics are rejected unless pairing provenance and ordering agree exactly. This prevents accidental BLIP-vs-CLIP or otherwise misaligned paired comparisons.
+
+Legacy frozen rank archives can be upgraded with `scripts/upgrade_rank_archive.py`; upgraded archives are marked as rehydrated from explicitly declared inputs rather than as historically emitted provenance.
+
+## Paper-facing analyses
+
+The retained analysis utilities are intentionally limited to paper-facing or release-audit tasks:
+
+- `scripts/analysis/analyze_belief_state.py`
+- `scripts/analysis/clean_persistence_challenge.py`
+- `scripts/analysis/analyze_cross_host_matrix.py`
+- `scripts/analysis/audit_dataset_lineage.py`
+- `scripts/analysis/audit_chatir_canonical.py`
+- `scripts/analysis/summarize_host_boundary.py`
+
+Auxiliary experiment runners are under `scripts/experiments/`. Generated vectors, rank archives, belief artifacts, and external datasets remain outside Git and are passed through explicit paths or environment variables.
 
 ## Evaluator safety
 
-For NACIR conditions, the unified evaluator checks that the negative-concept
-text encoder and corpus embeddings have matching dimensions before evaluation.
-H0 does not invoke the belief encoder.
+For Current and Persistent conditions, the unified evaluator checks that the negative-concept text encoder and corpus embeddings have matching dimensions before evaluation. H0 does not invoke the belief encoder.
