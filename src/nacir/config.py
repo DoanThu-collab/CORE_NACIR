@@ -1,4 +1,4 @@
-"""Configuration schemas for the NACIR- method."""
+"""Configuration schemas for the canonical NACIR method."""
 
 from __future__ import annotations
 
