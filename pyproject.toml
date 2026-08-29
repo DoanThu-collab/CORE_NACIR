@@ -12,11 +12,13 @@ dependencies = [
   "numpy>=1.24",
   "torch>=2.1",
   "transformers>=4.38",
+  "tqdm>=4.66",
 ]
 
 [project.optional-dependencies]
 clip = [
   "clip @ git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33",
+  "Pillow>=10.0",
 ]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
