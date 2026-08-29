@@ -1,4 +1,4 @@
-"""NACIR- paper-release implementation."""
+"""Canonical NACIR paper-release implementation."""
 
 from .config import NACIRMinusConfig
 from .pipeline import NACIRMinusPipeline
