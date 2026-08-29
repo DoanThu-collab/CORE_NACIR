@@ -59,17 +59,19 @@ If the pinned revision is not already cached, pass `--allow-download` on the fir
 
 ## OpenAI CLIP ViT-L/14 Adapter
 
-The CLIP evaluation uses `nacir.adapters.openai_clip_vitl14`. Install the pinned optional dependency with:
+The CLIP evaluation uses `nacir.adapters.openai_clip_vitl14`. Install it with the release helper:
 
 ```bash
-pip install -e '.[clip]'
+bash scripts/setup/install_openai_clip.sh
 ```
 
-The package pins `openai/CLIP` to commit:
+The helper first installs the CLIP workflow prerequisites from the `clip` extra, pins `setuptools<81`, and then installs `openai/CLIP` from this exact commit with build isolation disabled:
 
 ```text
 a1d071733d7111c9c014f024669f959182114e33
 ```
+
+The explicit non-isolated install is intentional. The upstream OpenAI/CLIP package can fail under modern isolated pip builds because its setup path imports `pkg_resources`. The helper keeps the source revision fixed while avoiding that packaging incompatibility.
 
 The adapter declares this repository revision together with the `ViT-L/14` checkpoint identity in evaluation provenance.
 
