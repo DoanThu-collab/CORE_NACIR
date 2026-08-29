@@ -1,4 +1,4 @@
-"""Evaluation helpers for the H0, H1, and F1 paper protocol."""
+"""Evaluation helpers for the H0 and NACIR paper protocol."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from typing import Literal
 
 import torch
 
-from .core.memory import ConceptMemory
 from .pipeline import NACIRMinusPipeline
 from .schema import RetrievalSession, SessionOutput, TurnTrace
 
@@ -15,7 +14,7 @@ RunMode = Literal["h0", "nacir"]
 
 @torch.inference_mode()
 def evaluate_session(pipeline: NACIRMinusPipeline, session: RetrievalSession, mode: RunMode) -> SessionOutput:
-    """Evaluate one session with either H0 baseline or the NACIR- method.
+    """Evaluate one session with either the H0 baseline or NACIR.
 
     Ground-truth target indices are read after scores are formed solely to report
     ranks; they never affect the pipeline state.
@@ -23,12 +22,10 @@ def evaluate_session(pipeline: NACIRMinusPipeline, session: RetrievalSession, mo
 
     if mode not in {"h0", "nacir"}:
         raise ValueError("mode must be h0 or nacir")
-    
+
     if mode == "nacir":
-        # Let pipeline.run_session() be the source of truth for memory logic
         return pipeline.run_session(session)
 
-    # For H0 baseline, evaluate raw queries without concept memory
     traces: list[TurnTrace] = []
     for turn in sorted(session.turns, key=lambda item: item.turn_index):
         if turn.query_vector is None:
@@ -38,7 +35,7 @@ def evaluate_session(pipeline: NACIRMinusPipeline, session: RetrievalSession, mo
         scores = base_query @ pipeline.corpus_vectors.T
         order = torch.argsort(scores, descending=True, stable=True)
         final_rank = pipeline._rank_of(scores, session.target_index)
-        
+
         traces.append(
             TurnTrace(
                 turn_index=turn.turn_index,
