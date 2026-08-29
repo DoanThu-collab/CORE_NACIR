@@ -1,1 +1,1 @@
-"""Core components used by the frozen F1 method."""
+"""Core components used by the canonical NACIR method."""
