@@ -1,51 +1,37 @@
+# Python caches and build products
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
-.venv/
-venv/
+*.egg-info/
 build/
 dist/
-*.egg-info/
 
-# Experiment inputs, model weights, and generated run artifacts are not tracked.
+# Local environments
+.venv/
+.venv_*/
+venv/
+
+# External data, model weights, embeddings, and generated artifacts
 data/
 artifacts/
+artifacts_final/
 runs/
+runs_final/
+runs_regression_test/
 outputs/
+logs/
 *.pt
 *.pth
 *.npz
 *.safetensors
 *.jsonl
-
-# Python generated
-__pycache__/
-*.py[cod]
-.pytest_cache/
-*.egg-info/
-
-# Environments
-.venv/
-.venv_*/
-venv/
-
-# Experiment outputs
-runs_final/
-runs_regression_test/
-logs/
+*.tar.gz
 *.log
 *.out
 *.err
 
-# Generated / large artifacts
-artifacts_final/
-*.pt
-*.pth
-*.npz
-*.tar.gz
-
-# Local machine configs
+# Local machine configuration
 configs/plugir_256_paths.json
 
 # Local review / temporary files
@@ -53,5 +39,3 @@ repo_structure_files.txt
 repo_tree.txt
 persistent_vs_gate_bootstrap_20k.txt
 help.txt
-runs_deadline/
-artifacts_final/cache/
