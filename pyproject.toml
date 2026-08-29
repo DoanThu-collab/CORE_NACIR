@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nacir"
 version = "0.1.0"
-description = "NACIR: signed-belief conversational image retrieval"
+description = "NACIR: persistent negative belief-state conversational image retrieval"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,6 +15,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+clip = [
+  "clip @ git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33",
+]
 dev = ["pytest>=8.0", "ruff>=0.6"]
 
 [tool.setuptools]
