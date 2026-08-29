@@ -16,8 +16,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Runtime/preparation prerequisites for the OpenAI CLIP workflow. The pinned
+# OpenAI/CLIP source package is installed by scripts/setup/install_openai_clip.sh
+# because the upstream setup currently fails under modern isolated builds.
 clip = [
-  "clip @ git+https://github.com/openai/CLIP.git@a1d071733d7111c9c014f024669f959182114e33",
   "Pillow>=10.0",
 ]
 dev = ["pytest>=8.0", "ruff>=0.6"]
