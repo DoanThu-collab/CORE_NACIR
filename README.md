@@ -22,14 +22,14 @@ source .venv/bin/activate
 pip install -e '.[dev]'
 ```
 
-For the OpenAI CLIP ViT-L/14 adapter, install the pinned optional dependency:
+For the OpenAI CLIP ViT-L/14 adapter, use the pinned installer:
 
 ```bash
-pip install -e '.[clip]'
+bash scripts/setup/install_openai_clip.sh
 ```
 
-The CLIP optional dependency pins `openai/CLIP` to commit
-`a1d071733d7111c9c014f024669f959182114e33`.
+The helper installs the CLIP workflow prerequisites and then installs `openai/CLIP` at commit
+`a1d071733d7111c9c014f024669f959182114e33` with build isolation disabled. This avoids an upstream packaging failure on modern pip/setuptools where the isolated CLIP build may not provide `pkg_resources`.
 
 The BLIP adapter is offline-first. If model files are not already in the default
 Hugging Face cache, either set a cache location before use or explicitly permit
@@ -115,6 +115,7 @@ comparisons; do not compare paper runs solely by array shape.
 - `scripts/analysis/`: paper analysis and audit utilities.
 - `scripts/experiments/`: auxiliary experiment entry points.
 - `scripts/prepare/`: embedding preparation utilities.
+- `scripts/setup/`: reproducible dependency/bootstrap helpers.
 - `tests/`: protocol and regression checks.
 - `docs/`: method, input-format, adapter, and data/license documentation.
 - `results/`: compact paper-result summaries only; raw experiment artifacts are intentionally not tracked.
