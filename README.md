@@ -1,41 +1,87 @@
-# NACIR-: Negative-Only Belief Memory for Conversational Image Retrieval
+# NACIR: Negative-Aware Conversational Image Retrieval
 
-This repository contains the official, simplified implementation of **NACIR-**, a training-free layer over a frozen retriever that handles multi-turn conversational image retrieval by extracting and subtracting negative evidence.
+Implementation of **NACIR**, a training-free retrieval adapter for preserving exclusionary evidence across multi-turn conversational image retrieval.
 
-## Why is it so simple?
+The canonical method is intentionally minimal: it keeps a persistent memory of negative concepts and subtracts their weighted embedding direction from the host query before retrieval.
 
-Earlier iterations of our methodology explored complex, multi-route mechanisms, including:
-- Dual-Route Fusion (blending positive and negative memory rankings).
-- Orthogonal Projection (removing query vector projection along negative axes).
-- Corpus-wise Masking (penalizing specific corpus items based on negative similarities).
-- Asymmetric KL Proposal Constraints (APC).
+## Canonical evaluation conditions
 
-In our final published evaluation, we demonstrated that **all these additions artificially inflate trajectory metrics (like Best-log-Rank Integral) but consistently degrade per-turn Recall@10 accuracy.** 
+The unified evaluator exposes three conditions:
 
-Therefore, our final proposed method discards all of them. The entire core of NACIR- fits in a single line (Eq. 2 of the paper):
-```python
-q_minus = norm(base_query - 0.275 * norm(negative_memory_vector))
-```
+- `h0`: host retriever only.
+- `current`: use negative evidence from the current feedback turn only.
+- `persistent`: retain negative evidence across dialogue turns (NACIR).
 
-## Legacy Code Archives
-To maintain full scientific transparency and allow readers to verify our ablation studies against the flawed trajectory metrics, we have preserved the rejected components in the `src/nacir/core/legacy_variants/` directory. These files (such as `dual_route_fusion.py`, `masking.py`, `projection.py`, etc.) are isolated and **not active** in the canonical NACIR- evaluation pipeline.
+The frozen configuration is `configs/nacir_minus_frozen.json`.
 
-The active code evaluates strictly Negative Memory and validates the single subtraction step.
+## Setup
 
-## Setup & Running
-
-Install the dependencies:
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -e '.[dev]'
 ```
 
-Evaluate the protocol on offline tensors (requires `sessions.pt` and `corpus_vectors.pt`):
+For the OpenAI CLIP ViT-L/14 adapter, install OpenAI CLIP separately:
+
 ```bash
-python scripts/evaluate_precomputed.py \
-    --mode nacir \
-    --corpus-vectors path/to/corpus_vectors.pt \
-    --sessions path/to/sessions.pt \
-    --beliefs path/to/beliefs.json \
-    --output runs/final_test \
-    --config configs/f1_frozen.json
+pip install git+https://github.com/openai/CLIP.git
 ```
+
+## Evaluate
+
+The evaluator expects precomputed session/query embeddings and corpus vectors in the formats documented in `docs/INPUT_FORMAT.md`.
+
+Host baseline:
+
+```bash
+PYTHONPATH=src python scripts/evaluate.py \
+  --method h0 \
+  --corpus-vectors /path/to/corpus_vectors.pt \
+  --sessions /path/to/sessions.pt \
+  --output outputs/h0
+```
+
+Current-turn negative adaptation:
+
+```bash
+PYTHONPATH=src python scripts/evaluate.py \
+  --method current \
+  --corpus-vectors /path/to/corpus_vectors.pt \
+  --sessions /path/to/sessions.pt \
+  --beliefs /path/to/beliefs.json \
+  --output outputs/current
+```
+
+Persistent NACIR:
+
+```bash
+PYTHONPATH=src python scripts/evaluate.py \
+  --method persistent \
+  --corpus-vectors /path/to/corpus_vectors.pt \
+  --sessions /path/to/sessions.pt \
+  --beliefs /path/to/beliefs.json \
+  --config configs/nacir_minus_frozen.json \
+  --output outputs/persistent
+```
+
+Use an adapter that matches the retrieval embedding space. See `docs/ADAPTERS.md`.
+
+## Repository layout
+
+- `src/nacir/`: canonical implementation.
+- `scripts/evaluate.py`: unified H0 / Current / Persistent evaluator.
+- `scripts/analysis/`: paper analysis and audit utilities.
+- `scripts/experiments/`: auxiliary experiment entry points.
+- `scripts/prepare/`: embedding preparation utilities.
+- `tests/`: protocol and regression checks.
+- `docs/`: method, input-format, adapter, and data/license documentation.
+- `results/`: compact paper-result summaries only; raw experiment artifacts are intentionally not tracked.
+
+## Reproducibility
+
+See `REPRODUCIBILITY.md` for the frozen main evaluation, exact-rank regression record, and final aggregate metrics.
+
+## Data and licenses
+
+The repository does not redistribute external datasets, model weights, frozen corpus embeddings, or private experiment workspaces. See `docs/DATA_AND_LICENSES.md`.

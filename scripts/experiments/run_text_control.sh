@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-BELIEFS="${BELIEFS:-/mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR_FIX/data/beliefs_v2/llama3_1_8b_v9_final_20260824.json}"
+
+BELIEFS="${BELIEFS:?Set BELIEFS to the frozen belief artifact path}"
 
 PYTHONPATH=src python scripts/experiments/evaluate_text_reencode_control.py \
   --corpus-vectors artifacts_final/corpus_blip_large_vectors.pt \
