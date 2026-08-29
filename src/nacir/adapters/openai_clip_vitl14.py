@@ -53,8 +53,22 @@ class OpenAICLIPTextEncoder:
 def load_clip_text_encoder(
     device: str,
     *,
-    allow_download: bool = True,
+    allow_download: bool = False,
 ):
+    """Load the paper-pinned OpenAI CLIP ViT-L/14 text encoder.
+
+    OpenAI CLIP's public ``clip.load`` API does not expose a strict
+    ``local_files_only`` switch. To avoid silently permitting network access,
+    callers must opt in with ``allow_download=True``. When the checkpoint is
+    already cached, ``clip.load`` will reuse it rather than downloading again.
+    """
+    if not allow_download:
+        raise RuntimeError(
+            "OpenAI CLIP loading may access the network when the checkpoint is "
+            "not cached. Re-run with --allow-download to explicitly permit "
+            "clip.load; cached checkpoints will still be reused."
+        )
+
     model, _ = clip.load(
         "ViT-L/14",
         device=device,
