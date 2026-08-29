@@ -32,15 +32,12 @@ def build_history_only_states(beliefs_path: Path):
             retrieval_turn = feedback_turn + 1
             current = t.get("negatives", []) or []
 
-            # Canonical NACIR adds current feedback before ranking this retrieval state.
             current_keys = []
             for neg in current:
                 key = canon(neg["attribute"])
                 current_keys.append(key)
                 last_seen[key] = retrieval_turn
 
-            # Clean persistence challenge:
-            # current turn contains NO negative, but historical negative state exists.
             if not current_keys and last_seen:
                 ages = [retrieval_turn - r for r in last_seen.values()]
                 rows.append({
@@ -96,7 +93,6 @@ def recall(records, ranks, k=10):
 
 
 def analyze(name, records, h0, current, persistent):
-    # On history-only states, Current must be an exact no-op relative to H0.
     mismatches = [
         x for x in records
         if h0[x["retrieval_turn"], x["dialog_id"]] != current[x["retrieval_turn"], x["dialog_id"]]
@@ -135,10 +131,7 @@ def analyze(name, records, h0, current, persistent):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--beliefs", type=Path, default=Path(
-        "/mlcv1/WorkingSpace/Personal/core_baotg/thuy/NACIR_FIX/data/beliefs_v2/"
-        "llama3_1_8b_v9_final_20260824.json"
-    ))
+    ap.add_argument("--beliefs", type=Path, required=True)
     ap.add_argument("--blip-h0", type=Path, default=Path("runs_final/chatir_blip_h0/ranks.npz"))
     ap.add_argument("--blip-current", type=Path, default=Path("runs_final/chatir_blip_nacir_current_turn/ranks.npz"))
     ap.add_argument("--blip-persistent", type=Path, default=Path("runs_final/chatir_blip_nacir_minus/ranks.npz"))
