@@ -9,12 +9,10 @@ import torch.nn.functional as F
 
 from nacir.config import MemoryConfig, NACIRMinusConfig
 from nacir.evaluation import evaluate_session, rank_matrix
-from nacir.metrics import compute_metrics
 from nacir.pipeline import NACIRMinusPipeline
 from nacir.pipeline_current_turn import NACIRCurrentTurnPipeline
 from nacir.provenance import build_provenance, read_rank_archive, verify_pairing
 from nacir.schema import Belief, BeliefBundle, DialogTurn, RetrievalSession
-from scripts.evaluate import _save
 
 
 class _FakeEncoder:
@@ -72,6 +70,27 @@ def _serialized_session(session: RetrievalSession) -> list[dict]:
             "query_texts": [turn.query_text for turn in session.turns],
         }
     ]
+
+
+def _write_fixture_archive(path: Path, ranks: np.ndarray, provenance: dict) -> None:
+    """Write the documented public ranks.npz schema without importing CLI code."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    metadata = {
+        key: value
+        for key, value in provenance.items()
+        if key not in {"session_ids", "target_indices"}
+    }
+    metadata["provenance_status"] = "emitted_by_evaluator"
+    np.savez_compressed(
+        path,
+        ranks=np.asarray(ranks, dtype=np.int64),
+        session_ids=np.asarray(provenance["session_ids"], dtype=np.int64),
+        target_indices=np.asarray(provenance["target_indices"], dtype=np.int64),
+        pairing_fingerprint=np.asarray(provenance["pairing_fingerprint"]),
+        evaluation_fingerprint=np.asarray(provenance["evaluation_fingerprint"]),
+        provenance_status=np.asarray("emitted_by_evaluator"),
+        metadata_json=np.asarray(json.dumps(metadata, sort_keys=True)),
+    )
 
 
 def test_h0_current_persistent_history_only_and_provenance(tmp_path: Path):
@@ -176,39 +195,32 @@ def test_h0_current_persistent_history_only_and_provenance(tmp_path: Path):
         config_path=config_path,
     )
 
-    h0_dir = tmp_path / "h0"
-    persistent_dir = tmp_path / "persistent"
-    alt_dir = tmp_path / "alt"
-    _save(h0_dir, h0_ranks, compute_metrics(h0_ranks), h0_provenance)
-    _save(
-        persistent_dir,
-        persistent_ranks,
-        compute_metrics(persistent_ranks),
-        persistent_provenance,
-    )
-    _save(alt_dir, h0_ranks, compute_metrics(h0_ranks), alt_provenance)
+    h0_path = tmp_path / "h0" / "ranks.npz"
+    persistent_path = tmp_path / "persistent" / "ranks.npz"
+    alt_path = tmp_path / "alt" / "ranks.npz"
+    _write_fixture_archive(h0_path, h0_ranks, h0_provenance)
+    _write_fixture_archive(persistent_path, persistent_ranks, persistent_provenance)
+    _write_fixture_archive(alt_path, h0_ranks, alt_provenance)
 
-    h0_archive = read_rank_archive(h0_dir / "ranks.npz")
-    persistent_archive = read_rank_archive(persistent_dir / "ranks.npz")
-    alt_archive = read_rank_archive(alt_dir / "ranks.npz")
+    h0_archive = read_rank_archive(h0_path)
+    persistent_archive = read_rank_archive(persistent_path)
+    alt_archive = read_rank_archive(alt_path)
 
     assert verify_pairing(h0_archive, persistent_archive)["verified"] is True
     mismatch = verify_pairing(h0_archive, alt_archive)
     assert mismatch["verified"] is False
     assert "pairing_fingerprint_mismatch" in mismatch["reasons"]
 
-    with np.load(persistent_dir / "ranks.npz", allow_pickle=False) as archive:
-        assert set(
-            [
-                "ranks",
-                "session_ids",
-                "target_indices",
-                "pairing_fingerprint",
-                "evaluation_fingerprint",
-                "provenance_status",
-                "metadata_json",
-            ]
-        ).issubset(archive.files)
+    with np.load(persistent_path, allow_pickle=False) as archive:
+        assert {
+            "ranks",
+            "session_ids",
+            "target_indices",
+            "pairing_fingerprint",
+            "evaluation_fingerprint",
+            "provenance_status",
+            "metadata_json",
+        }.issubset(archive.files)
         metadata = json.loads(str(np.asarray(archive["metadata_json"]).item()))
         assert metadata["model_revision"] == "fake-v1"
         assert str(np.asarray(archive["provenance_status"]).item()) == "emitted_by_evaluator"
