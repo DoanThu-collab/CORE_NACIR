@@ -18,3 +18,38 @@ outputs/
 *.npz
 *.safetensors
 *.jsonl
+
+# Python generated
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Environments
+.venv/
+.venv_*/
+venv/
+
+# Experiment outputs
+runs_final/
+runs_regression_test/
+logs/
+*.log
+*.out
+*.err
+
+# Generated / large artifacts
+artifacts_final/
+*.pt
+*.pth
+*.npz
+*.tar.gz
+
+# Local machine configs
+configs/plugir_256_paths.json
+
+# Local review / temporary files
+repo_structure_files.txt
+repo_tree.txt
+persistent_vs_gate_bootstrap_20k.txt
+help.txt

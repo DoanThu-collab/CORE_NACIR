@@ -24,7 +24,8 @@ from nacir.beliefs import BeliefStore
 from nacir.config import NACIRMinusConfig, MemoryConfig
 from nacir.evaluation import evaluate_session, rank_matrix
 from nacir.metrics import compute_metrics
-from nacir.pipeline import NACIRMinusPipeline
+from nacir.pipeline_structured import StructuredNACIRMinusPipeline
+from nacir.structured_negative import StructuredNegativeResolver
 from nacir.schema import DialogTurn, RetrievalSession
 
 
@@ -88,7 +89,16 @@ def _json_safe(value: Any) -> Any:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["h0", "nacir"], required=True)
+    parser.add_argument(
+        "--mode",
+        choices=["gate", "structure", "full"],
+        required=True,
+    )
+    parser.add_argument(
+        "--structured-artifact",
+        type=Path,
+        required=True,
+    )
     parser.add_argument("--corpus-vectors", type=Path, required=True)
     parser.add_argument("--sessions", type=Path, required=True)
     parser.add_argument("--beliefs", type=Path)
@@ -100,16 +110,30 @@ def main() -> None:
     parser.add_argument("--allow-download", action="store_true")
     args = parser.parse_args()
 
-    if args.mode != "h0" and args.beliefs is None:
-        raise ValueError("NACIR mode requires --beliefs")
-    store = BeliefStore.from_path(args.beliefs) if args.beliefs else None
-    if args.mode != "h0":
-        import importlib
-        adapter_module = importlib.import_module(args.adapter_module)
-        adapter_func = getattr(adapter_module, args.adapter_func)
-        encoder = adapter_func(args.device, allow_download=args.allow_download)
-    else:
-        encoder = _UnusedEncoder()
+    if args.beliefs is None:
+        raise ValueError(
+            "structured NACIR requires --beliefs"
+        )
+
+    store = BeliefStore.from_path(args.beliefs)
+
+    import importlib
+    adapter_module = importlib.import_module(
+        args.adapter_module
+    )
+    adapter_func = getattr(
+        adapter_module,
+        args.adapter_func,
+    )
+    encoder = adapter_func(
+        args.device,
+        allow_download=args.allow_download,
+    )
+
+    resolver = StructuredNegativeResolver(
+        args.structured_artifact,
+        verify_sha256=True,
+    )
         
     if args.config.exists():
         with args.config.open("r", encoding="utf-8") as f:
@@ -122,15 +146,23 @@ def main() -> None:
     else:
         config = NACIRMinusConfig()
 
-    pipeline = NACIRMinusPipeline(
+    pipeline = StructuredNACIRMinusPipeline(
         config=config,
         corpus_vectors=_load_vectors(args.corpus_vectors),
         text_encoder=encoder,
         device=args.device,
+        structured_resolver=resolver,
+        structured_mode=args.mode,
     )
     
     sessions = _sessions(args.sessions, store)
-    outputs = [evaluate_session(pipeline, session, args.mode) for session in tqdm(sessions, desc="Evaluating Sessions")]
+    outputs = [
+        pipeline.run_session(session)
+        for session in tqdm(
+            sessions,
+            desc=f"Evaluating {args.mode}",
+        )
+    ]
     
     ranks = rank_matrix(outputs)
     metrics = compute_metrics(ranks)
@@ -141,8 +173,19 @@ def main() -> None:
             _json_safe(
                 {
                     "status": "complete",
-                    "run_name": args.mode.upper(),
-                    "method": "raw_query" if args.mode == "h0" else args.mode,
+                    "run_name": (
+                        "PERSISTENT_"
+                        + args.mode.upper()
+                    ),
+                    "method": (
+                        "persistent_" + args.mode
+                    ),
+                    "structured_artifact": str(
+                        args.structured_artifact
+                    ),
+                    "structured_artifact_sha256": (
+                        resolver.sha256
+                    ),
                     "metrics": metrics,
                     "method_config": dataclasses.asdict(config),
                     "config_path": str(args.config),

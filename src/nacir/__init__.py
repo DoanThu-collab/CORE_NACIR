@@ -1,14 +1,14 @@
-"""NACIR paper-release implementation."""
+"""NACIR- paper-release implementation."""
 
-from .config import F1Config
-from .pipeline import F1Pipeline
+from .config import NACIRMinusConfig
+from .pipeline import NACIRMinusPipeline
 from .schema import Belief, BeliefBundle, DialogTurn, RetrievalSession
 
 __all__ = [
     "Belief",
     "BeliefBundle",
     "DialogTurn",
-    "F1Config",
-    "F1Pipeline",
+    "NACIRMinusConfig",
+    "NACIRMinusPipeline",
     "RetrievalSession",
 ]
