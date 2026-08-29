@@ -8,6 +8,7 @@ PYTHONPATH=src python scripts/experiments/reencode_host_sessions.py \
   --source-sessions artifacts_final/sessions_plugir_cr_blip.pt \
   --adapter-module nacir.adapters.openai_clip_vitl14 \
   --adapter-func load_clip_text_encoder \
+  --allow-download \
   --output artifacts_final/sessions_plugir_cr_clip_vitl14.pt
 
 PYTHONPATH=src python scripts/evaluate.py \
@@ -47,6 +48,7 @@ PYTHONPATH=src python scripts/evaluate.py \
   --beliefs "$BELIEFS" \
   --adapter-module nacir.adapters.openai_clip_vitl14 \
   --adapter-func load_clip_text_encoder \
+  --allow-download \
   --output "$OUT_ROOT/plugir_cr_clip_current"
 
 PYTHONPATH=src python scripts/evaluate.py \
@@ -56,6 +58,7 @@ PYTHONPATH=src python scripts/evaluate.py \
   --beliefs "$BELIEFS" \
   --adapter-module nacir.adapters.openai_clip_vitl14 \
   --adapter-func load_clip_text_encoder \
+  --allow-download \
   --output "$OUT_ROOT/plugir_cr_clip_persistent"
 
 PYTHONPATH=src python scripts/analysis/analyze_cross_host_matrix.py \
