@@ -19,6 +19,8 @@ artifacts_final/
 runs/
 runs_final/
 runs_regression_test/
+runs_deadline/
+runs_legacy/
 outputs/
 logs/
 *.pt
