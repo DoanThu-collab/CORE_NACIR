@@ -1,8 +1,8 @@
-"""Current-turn-only NACIR- ablation.
+"""Current-turn-only NACIR ablation.
 
-This variant is identical to NACIRMinusPipeline except that the concept
+This variant is identical to the persistent NACIR pipeline except that concept
 memory is reinitialized at every dialogue turn. Therefore, only negative
-beliefs extracted from the current turn can affect retrieval.
+beliefs available at the current retrieval state can affect retrieval.
 """
 
 from __future__ import annotations
@@ -126,8 +126,6 @@ class NACIRCurrentTurnPipeline:
             session.turns,
             key=lambda item: item.turn_index,
         ):
-            # KEY ABLATION:
-            # reset memory every turn.
             memory = ConceptMemory(
                 self.config.memory,
                 self.text_encoder,
