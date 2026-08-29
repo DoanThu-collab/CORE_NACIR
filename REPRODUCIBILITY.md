@@ -64,9 +64,23 @@ New evaluator outputs write strict provenance into `ranks.npz`:
 - `provenance_status`
 - `metadata_json`
 
-The pairing fingerprint binds the session artifact, corpus vectors, embedding dimension, and aligned session/target ordering. Paired statistics are rejected unless pairing provenance and ordering agree exactly. This prevents accidental BLIP-vs-CLIP or otherwise misaligned paired comparisons.
+The pairing fingerprint binds the exact session artifact, corpus vectors, embedding dimension, and aligned session/target ordering. Paired statistics are rejected unless pairing provenance and ordering agree exactly. This prevents accidental BLIP-vs-CLIP or otherwise misaligned paired comparisons.
+
+The evaluation fingerprint additionally records the method, belief/config hashes, adapter identity, and declared model revision for Current/Persistent runs. The BLIP adapter exposes the frozen Hugging Face revision; the OpenAI CLIP adapter records the pinned OpenAI/CLIP repository revision plus the ViT-L/14 checkpoint identity.
 
 Legacy frozen rank archives can be upgraded with `scripts/upgrade_rank_archive.py`; upgraded archives are marked as rehydrated from explicitly declared inputs rather than as historically emitted provenance.
+
+Before a paper/release freeze, audit every local paper-facing archive:
+
+```bash
+PYTHONPATH=src python scripts/audit_rank_archives.py runs_final outputs
+```
+
+The audit fails if any discovered `ranks.npz` lacks the canonical provenance contract or has inconsistent rank/session/target dimensions.
+
+## Multiple testing
+
+`scripts/compare_runs.py` defines the Holm family structurally as retrieval turns `1..T-1`. Turn 0 is excluded because it is the pre-feedback host state by protocol construction. The set of corrected turns is therefore fixed independently of observed equality, effect size, or significance.
 
 ## Paper-facing analyses
 
