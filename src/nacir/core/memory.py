@@ -79,10 +79,10 @@ class ConceptMemory:
 
     def add_bundle(self, bundle: BeliefBundle, turn: int) -> Dict[str, int]:
         self.current_turn = turn
-        
-        # [PAPER NACIR-] Only process negative beliefs. Ignore all positive beliefs.
+
+        # Canonical NACIR processes negative beliefs only.
         pairs = [("negative", belief) for belief in bundle.negative]
-        
+
         stats = {"added": 0, "updated": 0, "overridden": 0, "evicted": 0}
         if not pairs:
             return stats
@@ -159,16 +159,16 @@ class ConceptMemory:
         positive: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         negative: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
     ) -> torch.Tensor:
-        """Eq 2: q− = norm(q0 − λ− * norm(Sum(ωj * vj)))."""
+        """q^- = norm(q_bar - lambda * norm(sum_j w_j v_j))."""
         negative = negative if negative is not None else self.vectors("negative")
         updated = query.clone().float()
-        
+
         vectors, confidences = negative
         if vectors is not None and confidences is not None and vectors.numel() > 0:
             aggregate = (confidences[:, None] * vectors).sum(dim=0)
             if float(aggregate.norm()) > 0:
                 updated = updated - self.config.negative_weight * F.normalize(aggregate, dim=0)
-                
+
         return F.normalize(updated, dim=0)
 
     def diagnostics(self) -> dict:
@@ -178,4 +178,3 @@ class ConceptMemory:
             "negative": sum(entry.polarity == "negative" for entry in self.entries.values()),
             "overrides": len(self.override_log),
         }
-
