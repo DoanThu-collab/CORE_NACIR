@@ -19,35 +19,52 @@ from nacir.metrics import compute_metrics
 from nacir.pipeline import NACIRMinusPipeline
 from nacir.pipeline_current_turn import NACIRCurrentTurnPipeline
 
+def _to_jsonable(obj):
+    """Recursively convert common non-JSON objects to JSON-safe Python types."""
+    if torch.is_tensor(obj):
+        obj = obj.detach().cpu()
+        if obj.numel() == 1:
+            return obj.item()
+        return obj.tolist()
+
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+
+    if isinstance(obj, np.generic):
+        return obj.item()
+
+    if isinstance(obj, Path):
+        return str(obj)
+
+    if isinstance(obj, dict):
+        return {str(k): _to_jsonable(v) for k, v in obj.items()}
+
+    if isinstance(obj, (list, tuple)):
+        return [_to_jsonable(v) for v in obj]
+
+    return obj
+
 
 def _load_vectors(path: Path) -> torch.Tensor:
-    obj = torch.load(path, map_location="cpu")
+    loaded = torch.load(
+        path,
+        map_location="cpu",
+        weights_only=False,
+    )
 
-    if isinstance(obj, torch.Tensor):
-        vectors = obj
-    elif isinstance(obj, dict):
-        for key in (
-            "vectors",
-            "embeddings",
-            "corpus_vectors",
-            "features",
-        ):
-            if key in obj:
-                vectors = obj[key]
-                break
-        else:
-            raise ValueError(
-                f"Could not find corpus vectors in {path}"
-            )
-    else:
-        raise TypeError(
-            f"Unsupported corpus-vector object: {type(obj)}"
-        )
+    vectors = (
+        loaded.get("vectors")
+        if isinstance(loaded, dict)
+        else loaded
+    )
 
     if not isinstance(vectors, torch.Tensor):
-        vectors = torch.as_tensor(vectors)
+        raise ValueError(
+            "vector file must be a tensor "
+            "or {'vectors': tensor}"
+        )
 
-    return vectors.float()
+    return vectors
 
 
 def _load_config(path: Path | None) -> NACIRMinusConfig:
@@ -85,23 +102,85 @@ def _load_sessions(
     path: Path,
     belief_store: BeliefStore | None,
 ):
-    obj: Any = torch.load(path, map_location="cpu")
+    loaded = torch.load(
+        path,
+        map_location="cpu",
+        weights_only=False,
+    )
 
-    sessions = obj["sessions"] if isinstance(obj, dict) and "sessions" in obj else obj
-
-    if not isinstance(sessions, list):
-        raise TypeError(
-            f"Expected list of sessions, got {type(sessions)}"
+    if not isinstance(loaded, list) or not loaded:
+        raise ValueError(
+            "session file must be a non-empty list"
         )
 
-    if belief_store is not None:
-        for session in sessions:
-            for turn in session.turns:
-                if turn.beliefs is None:
-                    turn.beliefs = belief_store.bundle(
-                        session.session_id,
-                        turn.turn_index,
+    from nacir.schema import DialogTurn, RetrievalSession
+
+    sessions: list[RetrievalSession] = []
+
+    for raw in loaded:
+        if not isinstance(raw, dict):
+            raise ValueError(
+                "every session must be a dictionary"
+            )
+
+        session_id = raw.get("session_id")
+        target_index = raw.get("target_index")
+        query_vectors = raw.get("query_vectors")
+        query_texts = raw.get("query_texts")
+
+        if not isinstance(session_id, int) or not isinstance(target_index, int):
+            raise ValueError(
+                "session_id and target_index must be integers"
+            )
+
+        if (
+            not isinstance(query_vectors, torch.Tensor)
+            or query_vectors.ndim != 2
+        ):
+            raise ValueError(
+                "query_vectors must have shape "
+                "[rounds, embedding_dim]"
+            )
+
+        if query_texts is None:
+            query_texts = [
+                "precomputed query"
+            ] * query_vectors.shape[0]
+
+        if (
+            not isinstance(query_texts, list)
+            or len(query_texts) != query_vectors.shape[0]
+        ):
+            raise ValueError(
+                "query_texts must align with query_vectors"
+            )
+
+        turns = [
+            DialogTurn(
+                turn_index=index,
+                query_text=str(query_texts[index]),
+                query_vector=query_vectors[index],
+                beliefs=(
+                    belief_store.bundle(
+                        session_id,
+                        index,
                     )
+                    if belief_store
+                    else None
+                ),
+            )
+            for index in range(
+                query_vectors.shape[0]
+            )
+        ]
+
+        sessions.append(
+            RetrievalSession(
+                session_id,
+                turns,
+                target_index,
+            )
+        )
 
     return sessions
 
@@ -126,10 +205,48 @@ def _save(
         encoding="utf-8",
     ) as f:
         json.dump(
-            metrics,
+            _to_jsonable(metrics),
             f,
             indent=2,
         )
+
+
+def _validate_encoder_dimension(
+    encoder: Any,
+    corpus_vectors: torch.Tensor,
+) -> None:
+    """Fail early when the belief encoder does not match retrieval space."""
+    probe = encoder.encode(["object"])
+
+    if not torch.is_tensor(probe):
+        probe = torch.as_tensor(probe)
+
+    if probe.ndim == 1:
+        encoder_dim = int(probe.shape[0])
+    elif probe.ndim == 2 and probe.shape[0] == 1:
+        encoder_dim = int(probe.shape[-1])
+    else:
+        raise ValueError(
+            "Unexpected text-encoder output shape: "
+            f"{tuple(probe.shape)}"
+        )
+
+    if corpus_vectors.ndim != 2:
+        raise ValueError(
+            "Expected corpus vectors with shape [N, D], "
+            f"got {tuple(corpus_vectors.shape)}"
+        )
+
+    corpus_dim = int(corpus_vectors.shape[-1])
+
+    if encoder_dim != corpus_dim:
+        raise ValueError(
+            "Text encoder / retrieval-space dimension mismatch: "
+            f"encoder={encoder_dim}, corpus={corpus_dim}. "
+            "Select the backbone-specific --adapter-module "
+            "and --adapter-func."
+        )
+
 
 
 def main() -> None:
@@ -201,7 +318,7 @@ def main() -> None:
     config = _load_config(args.config)
 
     belief_store = (
-        BeliefStore.from_json(args.beliefs)
+        BeliefStore.from_path(args.beliefs)
         if args.beliefs
         else None
     )
@@ -231,6 +348,12 @@ def main() -> None:
     corpus_vectors = _load_vectors(
         args.corpus_vectors
     )
+
+    if args.method != "h0":
+        _validate_encoder_dimension(
+            encoder,
+            corpus_vectors,
+        )
 
     if args.method == "current":
         pipeline = NACIRCurrentTurnPipeline(
@@ -277,7 +400,7 @@ def main() -> None:
 
     print(
         json.dumps(
-            metrics,
+            _to_jsonable(metrics),
             indent=2,
         )
     )

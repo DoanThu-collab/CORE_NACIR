@@ -51,7 +51,7 @@ def compute_metrics(
         "cumulative_hits": cumulative_hits,
         "per_round_recall": per_round_recall,
         "bri": float(bri.item()),
-        "num_queries": int(ranks.shape[1]),
+        "num_dialogues": int(ranks.shape[1]),
         "num_rounds": int(ranks.shape[0]),
         "rank_indexing": "zero",
         "log_base": "e",

@@ -106,7 +106,7 @@ def audit_triplet(name, h0_dir, current_dir, persistent_dir):
 
         assert r["status"] == "complete"
         assert r["num_sessions"] == 2064
-        assert r["metrics"]["num_queries"] == 2064
+        assert r["metrics"]["num_dialogues"] == 2064
         assert r["metrics"]["num_rounds"] == 11
         assert a.shape == (11, 2064)
 
