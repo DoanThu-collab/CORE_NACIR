@@ -16,6 +16,7 @@ cross-corpus / cross-space comparisons to be falsely accepted.
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,23 @@ def sha256_file(path: str | Path | None) -> str | None:
 def _stable_sha256(payload: dict[str, Any]) -> str:
     blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _declared_model_revision(method: str, adapter_module: str | None) -> str | None:
+    """Read a declared adapter/model revision for non-H0 runs.
+
+    H0 never invokes a belief encoder, so adapter identity is intentionally not
+    material to the run. For Current/Persistent, public adapters must expose
+    ``MODEL_REVISION`` (preferred) or ``MODEL_ID`` as a stable fallback.
+    """
+    if method == "h0" or not adapter_module:
+        return None
+
+    module = importlib.import_module(adapter_module)
+    value = getattr(module, "MODEL_REVISION", None)
+    if value is None:
+        value = getattr(module, "MODEL_ID", None)
+    return None if value is None else str(value)
 
 
 def load_session_identity(path: str | Path) -> tuple[np.ndarray, np.ndarray, int]:
@@ -103,6 +121,10 @@ def build_provenance(
             f"session/corpus dimension mismatch: sessions D={session_dim}, corpus D={corpus_dim}"
         )
 
+    method = str(method)
+    if model_revision is None:
+        model_revision = _declared_model_revision(method, adapter_module)
+
     sessions_sha = sha256_file(sessions_path)
     corpus_sha = sha256_file(corpus_path)
     beliefs_sha = sha256_file(beliefs_path)
@@ -122,11 +144,11 @@ def build_provenance(
     evaluation_payload = {
         "schema": "nacir-evaluation-v2",
         "pairing_fingerprint": pairing_fp,
-        "method": str(method),
+        "method": method,
         "beliefs_sha256": beliefs_sha,
         "config_sha256": config_sha,
-        "adapter_module": adapter_module,
-        "adapter_func": adapter_func,
+        "adapter_module": adapter_module if method != "h0" else None,
+        "adapter_func": adapter_func if method != "h0" else None,
         "model_revision": model_revision,
         "extra_run_metadata": extra_run_metadata or {},
     }
@@ -145,9 +167,9 @@ def build_provenance(
         "corpus_sha256": corpus_sha,
         "beliefs_sha256": beliefs_sha,
         "config_sha256": config_sha,
-        "method": str(method),
-        "adapter_module": adapter_module,
-        "adapter_func": adapter_func,
+        "method": method,
+        "adapter_module": adapter_module if method != "h0" else None,
+        "adapter_func": adapter_func if method != "h0" else None,
         "model_revision": model_revision,
     }
 
