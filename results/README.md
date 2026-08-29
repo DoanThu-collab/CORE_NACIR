@@ -1,5 +1,7 @@
-# Verified aggregate results
+# Paper result summaries
 
-The files in this directory are compact transcriptions of completed experimental reports. They intentionally exclude raw ranks, traces, prompts, private paths, and belief artifacts. Statistical claims are included only where their paired comparison output was verified.
+This directory is reserved for compact summaries of the final NACIR paper results.
 
-See `llama_main.json` and `mistral_replication.json`. The Mistral paired comparison JSON must be regenerated and archived before reporting confidence intervals or p-values for that replication.
+Raw rank matrices, traces, prompts, model weights, frozen corpus embeddings, and environment-specific artifacts are intentionally not tracked in the public repository.
+
+Only summaries derived from the canonical H0 / Current / Persistent evaluation protocol should be added here. Legacy H0/H1/F1 summaries have been removed because they describe an obsolete methodology.
