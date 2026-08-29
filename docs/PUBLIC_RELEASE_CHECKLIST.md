@@ -5,12 +5,15 @@ Run this checklist from the repository root before a paper-facing release.
 ## Code and reproducibility
 
 - [ ] Create a clean environment and run `pip install -e '.[dev]'`.
-- [ ] Install OpenAI CLIP when reproducing the CLIP ViT-L/14 condition.
+- [ ] For CLIP reproduction, run `pip install -e '.[clip]'` and keep the pinned OpenAI/CLIP revision.
 - [ ] Run `pytest` successfully.
 - [ ] Run one smoke evaluation for H0, Current, and Persistent with non-sensitive fixtures.
 - [ ] Confirm `scripts/evaluate.py` writes strict provenance fields into `ranks.npz`.
+- [ ] Run `PYTHONPATH=src python scripts/audit_rank_archives.py runs_final outputs` on every local paper-facing archive collection.
 - [ ] Run `scripts/compare_runs_strict.py` (or the guarded canonical comparator) on aligned archives.
 - [ ] Confirm a cross-space comparison is rejected before paired statistics.
+- [ ] Confirm Current/Persistent evaluation metadata records the declared adapter/model revision.
+- [ ] Confirm Holm correction is structurally defined on feedback-conditioned turns `1..T-1` rather than selected from observed results.
 - [ ] Confirm `configs/nacir_minus_frozen.json` matches the frozen paper configuration.
 - [ ] Confirm no module uses a target index before scoring/ranking.
 
