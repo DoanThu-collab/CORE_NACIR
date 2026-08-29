@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from nacir.provenance import build_provenance
 from tqdm import tqdm
 
 from nacir.beliefs import BeliefStore
@@ -18,6 +19,7 @@ from nacir.evaluation import evaluate_session, rank_matrix
 from nacir.metrics import compute_metrics
 from nacir.pipeline import NACIRMinusPipeline
 from nacir.pipeline_current_turn import NACIRCurrentTurnPipeline
+
 
 def _to_jsonable(obj):
     """Recursively convert common non-JSON objects to JSON-safe Python types."""
@@ -189,15 +191,103 @@ def _save(
     output_dir: Path,
     ranks: np.ndarray,
     metrics: dict[str, Any],
+    provenance: dict[str, Any],
 ) -> None:
     output_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
+    ranks = np.asarray(
+        ranks,
+        dtype=np.int64,
+    )
+
+    session_ids = np.asarray(
+        provenance["session_ids"],
+        dtype=np.int64,
+    )
+    target_indices = np.asarray(
+        provenance["target_indices"],
+        dtype=np.int64,
+    )
+
+    if ranks.ndim != 2:
+        raise ValueError(
+            f"Expected 2D rank matrix, got {ranks.shape}"
+        )
+
+    if ranks.shape[1] != len(session_ids):
+        raise ValueError(
+            "Rank/session count mismatch: "
+            f"ranks={ranks.shape}, "
+            f"sessions={len(session_ids)}"
+        )
+
+    if len(session_ids) != len(target_indices):
+        raise ValueError(
+            "session_ids and target_indices "
+            "must have identical length"
+        )
+
+    provenance_status = "emitted_by_evaluator"
+
+    provenance_metadata = {
+        k: v
+        for k, v in provenance.items()
+        if k not in {
+            "session_ids",
+            "target_indices",
+        }
+    }
+
+    provenance_metadata[
+        "provenance_status"
+    ] = provenance_status
+
     np.savez_compressed(
         output_dir / "ranks.npz",
         ranks=ranks,
+        session_ids=session_ids,
+        target_indices=target_indices,
+        pairing_fingerprint=np.asarray(
+            provenance["pairing_fingerprint"]
+        ),
+        evaluation_fingerprint=np.asarray(
+            provenance["evaluation_fingerprint"]
+        ),
+        provenance_status=np.asarray(
+            provenance_status
+        ),
+        metadata_json=np.asarray(
+            json.dumps(
+                _to_jsonable(
+                    provenance_metadata
+                ),
+                sort_keys=True,
+            )
+        ),
+    )
+
+    metrics_with_provenance = dict(metrics)
+
+    metrics_with_provenance.update(
+        {
+            "pairing_fingerprint":
+                provenance[
+                    "pairing_fingerprint"
+                ],
+            "evaluation_fingerprint":
+                provenance[
+                    "evaluation_fingerprint"
+                ],
+            "provenance_status":
+                provenance_status,
+            "provenance_schema":
+                provenance[
+                    "provenance_schema"
+                ],
+        }
     )
 
     with (output_dir / "metrics.json").open(
@@ -205,7 +295,9 @@ def _save(
         encoding="utf-8",
     ) as f:
         json.dump(
-            _to_jsonable(metrics),
+            _to_jsonable(
+                metrics_with_provenance
+            ),
             f,
             indent=2,
         )
@@ -246,7 +338,6 @@ def _validate_encoder_dimension(
             "Select the backbone-specific --adapter-module "
             "and --adapter-func."
         )
-
 
 
 def main() -> None:
@@ -392,10 +483,21 @@ def main() -> None:
     ranks = rank_matrix(outputs)
     metrics = compute_metrics(ranks)
 
+    provenance = build_provenance(
+        sessions_path=args.sessions,
+        corpus_path=args.corpus_vectors,
+        beliefs_path=args.beliefs,
+        method=args.method,
+        config_path=args.config,
+        adapter_module=args.adapter_module,
+        adapter_func=args.adapter_func,
+    )
+
     _save(
         args.output,
         ranks,
         metrics,
+        provenance,
     )
 
     print(
