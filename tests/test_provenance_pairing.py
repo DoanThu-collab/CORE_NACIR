@@ -1,6 +1,9 @@
+import sys
+import types
+
 import numpy as np
 
-from nacir.provenance import verify_pairing
+from nacir.provenance import _declared_model_revision, verify_pairing
 
 
 def _obj(fp, sids=(0, 1), targets=(4, 5)):
@@ -34,3 +37,18 @@ def test_missing_metadata_rejected():
     b = _obj("same")
     b["pairing_fingerprint"] = None
     assert not verify_pairing(a, b)["verified"]
+
+
+def test_declared_revision_is_loaded_for_nacir(monkeypatch):
+    module = types.ModuleType("fake_nacir_adapter")
+    module.MODEL_REVISION = "revision-123"
+    monkeypatch.setitem(sys.modules, "fake_nacir_adapter", module)
+
+    assert (
+        _declared_model_revision("persistent", "fake_nacir_adapter")
+        == "revision-123"
+    )
+
+
+def test_h0_does_not_import_unused_adapter():
+    assert _declared_model_revision("h0", "module.that.does.not.exist") is None
