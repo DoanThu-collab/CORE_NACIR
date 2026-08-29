@@ -1,40 +1,62 @@
-import json
-import numpy as np
+import torch
 
-with open('artifacts_final/plugir_full/plugir_256_active_beliefs_llama31_8b.json') as f:
-    d = json.load(f)['dialogs']
+from nacir.config import MemoryConfig
+from nacir.core.memory import ConceptMemory
+from nacir.schema import Belief, BeliefBundle
 
-h0 = np.load('runs_final/plugir_active_256_blip_h0/ranks.npz')['ranks_per_round']
-p = np.load('runs_final/plugir_active_256_blip_nacir_persistent_canonical/ranks.npz')['ranks_per_round']
-c = np.load('runs_final/plugir_active_256_blip_nacir_current_turn_canonical/ranks.npz')['ranks_per_round']
 
-mismatches_p = 0
-mismatches_c = 0
+class FixedEncoder:
+    def encode(self, texts):
+        vectors = {
+            "red car": torch.tensor([1.0, 0.0, 0.0]),
+        }
+        return torch.stack([vectors[text] for text in texts])
 
-for i in range(256):
-    # 1. Invariant cho Persistent (Toàn bộ session nếu có 0 negatives tổng)
-    total_negs = sum(len(t.get('negatives', [])) for t in d[i]['turns'])
-    if total_negs == 0:
-        if not np.array_equal(h0[:, i], p[:, i]): 
-            mismatches_p += 1
 
-    # 2. Invariant mạnh cho Current-turn (Check riêng lẻ từng round)
-    # Round 0 (Caption) luôn phải bằng nhau
-    if h0[0, i] != c[0, i]: mismatches_c += 1
-    
-    # Round t+1 sử dụng negatives từ turn t 
-    for turn in d[i]['turns']:
-        t_idx = turn['turn']
-        num_negs = len(turn.get('negatives', []))
-        if num_negs == 0:
-            if h0[t_idx + 1, i] != c[t_idx + 1, i]:
-                mismatches_c += 1
+def test_empty_negative_bundle_is_noop_up_to_normalization():
+    memory = ConceptMemory(MemoryConfig(), FixedEncoder())
+    query = torch.tensor([3.0, 4.0, 0.0])
 
-print(f"--- INVARIANT TEST RESULTS ---")
-print(f"Persistent Zero-Negative Mismatches : {mismatches_p}")
-print(f"Current-turn Turn-level Mismatches  : {mismatches_c}")
+    stats = memory.add_bundle(BeliefBundle.empty(), turn=1)
+    result = memory.synthesize(query)
 
-if mismatches_p == 0 and mismatches_c == 0:
-    print("\n✅ PASS TOÀN BỘ! Method đã chính xác là 'Canonical Negative-only Adapter'.")
-else:
-    print("\n🔴 FAIL! Vẫn còn bug Feature-drift cắm ngầm trong pipeline.")
+    assert stats == {
+        "added": 0,
+        "updated": 0,
+        "overridden": 0,
+        "evicted": 0,
+    }
+    assert len(memory.entries) == 0
+    assert torch.allclose(result, torch.nn.functional.normalize(query, dim=0))
+
+
+def test_positive_only_bundle_does_not_change_canonical_memory():
+    memory = ConceptMemory(MemoryConfig(), FixedEncoder())
+    query = torch.tensor([3.0, 4.0, 0.0])
+    bundle = BeliefBundle(positive=[Belief("red car", confidence=0.9)])
+
+    stats = memory.add_bundle(bundle, turn=1)
+    result = memory.synthesize(query)
+
+    assert stats == {
+        "added": 0,
+        "updated": 0,
+        "overridden": 0,
+        "evicted": 0,
+    }
+    assert len(memory.entries) == 0
+    assert torch.allclose(result, torch.nn.functional.normalize(query, dim=0))
+
+
+def test_negative_bundle_changes_query_direction():
+    config = MemoryConfig(negative_weight=0.275)
+    memory = ConceptMemory(config, FixedEncoder())
+    query = torch.tensor([0.0, 1.0, 0.0])
+    bundle = BeliefBundle(negative=[Belief("red car", confidence=1.0)])
+
+    memory.add_bundle(bundle, turn=1)
+    result = memory.synthesize(query)
+
+    assert len(memory.entries) == 1
+    assert not torch.allclose(result, torch.nn.functional.normalize(query, dim=0))
+    assert result[0] < 0
