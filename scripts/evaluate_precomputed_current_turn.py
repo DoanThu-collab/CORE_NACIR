@@ -24,7 +24,7 @@ from nacir.beliefs import BeliefStore
 from nacir.config import NACIRMinusConfig, MemoryConfig
 from nacir.evaluation import evaluate_session, rank_matrix
 from nacir.metrics import compute_metrics
-from nacir.pipeline import NACIRMinusPipeline
+from nacir.pipeline_current_turn import NACIRCurrentTurnPipeline
 from nacir.schema import DialogTurn, RetrievalSession
 
 
@@ -122,16 +122,24 @@ def main() -> None:
     else:
         config = NACIRMinusConfig()
 
-    pipeline = NACIRMinusPipeline(
+    pipeline = NACIRCurrentTurnPipeline(
         config=config,
         corpus_vectors=_load_vectors(args.corpus_vectors),
         text_encoder=encoder,
         device=args.device,
     )
-    
     sessions = _sessions(args.sessions, store)
-    outputs = [evaluate_session(pipeline, session, args.mode) for session in tqdm(sessions, desc="Evaluating Sessions")]
-    
+
+    if args.mode == "nacir":
+        outputs = [
+            pipeline.run_session(session)
+            for session in tqdm(sessions, desc="Evaluating Sessions")
+        ]
+    else:
+        outputs = [
+            evaluate_session(pipeline, session, args.mode)
+            for session in tqdm(sessions, desc="Evaluating Sessions")
+        ]
     ranks = rank_matrix(outputs)
     metrics = compute_metrics(ranks)
     args.output.mkdir(parents=True, exist_ok=True)

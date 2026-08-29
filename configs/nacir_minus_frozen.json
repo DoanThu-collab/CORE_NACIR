@@ -1,0 +1,11 @@
+{
+  "memory": {
+    "negative_weight": 0.275,
+    "recency_decay": 0.1,
+    "override_boost": 0.15,
+    "max_concepts": 50,
+    "semantic_merge": false,
+    "semantic_merge_threshold": 0.85
+  },
+  "top_k": 1000
+}
